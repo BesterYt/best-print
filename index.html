@@ -475,6 +475,19 @@
   </div>
 </div>
 
+<!-- ORDER CONFIRMATION MODAL: asks for telegram username, shows order id and bot name -->
+<div id="orderModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal" role="document" style="max-width:520px;">
+    <button class="close" aria-label="Закрыть" onclick="closeOrderModal()">✕</button>
+    <h3 id="orderModalTitle">Подтвердите заказ</h3>
+    <div id="orderModalBody" style="margin-top:8px; color:#222; text-align:left;"></div>
+    <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+      <button onclick="submitOrderToServer()" id="orderConfirmBtn" style="background:var(--accent);">Я сохранил код и отправить</button>
+      <button onclick="closeOrderModal()" style="background:#eee;">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <!-- IMAGE LIGHTBOX: full-screen image viewer (opened when clicking product main image) -->
 <div id="imgLightbox" class="img-lightbox" role="dialog" aria-hidden="true" onclick="closeLightbox()">
   <img id="lightboxImg" src="" alt="Просмотр изображения" onclick="event.stopPropagation();" />
@@ -775,6 +788,42 @@ function closeLightbox(){
   if(_lbKeyHandler) { document.removeEventListener('keydown', _lbKeyHandler); _lbKeyHandler = null; }
 }
 
+// Order modal helpers — called when user confirms they've saved the order code
+function closeOrderModal(){
+  const modal = document.getElementById('orderModal');
+  if(!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden','true');
+}
+
+async function submitOrderToServer(){
+  if(!lastOrder) { alert('Нет заказа для отправки'); return; }
+  const endpoint = document.getElementById('orderConfirmBtn').dataset.endpoint || 'https://bestprintdaf5.ivantimockin19.workers.dev/orders';
+  // confirm user saved code
+  const ok = window.confirm('Вы сохранили код заказа? После отправки мы уведомим менеджера.');
+  if(!ok) return;
+  try{
+    // send POST to worker URL
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lastOrder)
+    });
+    const data = await res.json().catch(()=>({ ok: res.ok }));
+    closeOrderModal();
+    if(res.ok){
+      // show generic success modal
+      openModal();
+      console.log('Order sent', data);
+    } else {
+      alert('Ошибка отправки заказа на сервер. Попробуйте позже.');
+    }
+  }catch(err){
+    console.error('send order err', err);
+    alert('Не удалось отправить заказ. Проверьте соединение.');
+  }
+}
+
 /* =========================
    placeOrder() — сохраняет опции и открывает модалку
    ========================= */
@@ -783,9 +832,34 @@ function placeOrder(){
   if(!currentProduct){ alert('Нет выбранного продукта'); return; }
   const color = document.querySelector('#colorOptions .option-btn.active')?.dataset?.value || null;
   const size = document.querySelector('#sizeOptions .option-btn.active')?.dataset?.value || null;
-  lastOrder = { product: currentProduct.name, price: currentProduct.price, color, size, date: new Date().toISOString() };
-  // TODO: интеграция отправки заказа на сервер
-  openModal();
+  // build order object
+  const orderId = 'ORD-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8).toUpperCase();
+  lastOrder = { id: orderId, product: currentProduct.name, price: currentProduct.price, color, size, date: new Date().toISOString() };
+
+  // ask for Telegram username (client-side)
+  let tg = window.prompt('Укажите ваш Telegram username (например @username).\nЕсли у вас нет username, укажите телефон или оставьте пустым:','@');
+  if(tg === null){ // user cancelled
+    return;
+  }
+  tg = (tg || '').trim();
+  lastOrder.username = tg;
+
+  // prepare order modal with code and bot name
+  const body = document.getElementById('orderModalBody');
+  body.innerHTML = `
+    <p><strong>Код заказа:</strong> ${lastOrder.id}</p>
+    <p><strong>Модель:</strong> ${lastOrder.product}</p>
+    <p><strong>Размер:</strong> ${lastOrder.size || '-'}; <strong>Цвет:</strong> ${lastOrder.color || '-'}</p>
+    <p>Бот для проверки статуса: <code>@best3dPrintbot</code></p>
+    <p style="margin-top:8px; color:#666;">Сохраните код заказа — после закрытия окна будет предложено подтвердить, что вы сохранили код, и заказ будет отправлен на сервер.</p>
+  `;
+
+  // store server endpoint in button dataset
+  document.getElementById('orderConfirmBtn').dataset.endpoint = 'https://bestprintdaf5.ivantimockin19.workers.dev/orders';
+
+  // show the modal
+  document.getElementById('orderModal').classList.add('show');
+  document.getElementById('orderModal').setAttribute('aria-hidden','false');
 }
 
 /* =========================
