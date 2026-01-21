@@ -802,25 +802,58 @@ async function submitOrderToServer(){
   // confirm user saved code
   const ok = window.confirm('Вы сохранили код заказа? После отправки мы уведомим менеджера.');
   if(!ok) return;
+  // show UI feedback and enforce a 15s timeout
+  const confirmBtn = document.getElementById('orderConfirmBtn');
+  const origText = confirmBtn ? confirmBtn.textContent : '';
+  if(confirmBtn){ confirmBtn.disabled = true; confirmBtn.textContent = 'Отправка...'; }
+
+  // status paragraph inside modal
+  let statusEl = document.getElementById('orderSendStatus');
+  if(!statusEl){
+    statusEl = document.createElement('p');
+    statusEl.id = 'orderSendStatus';
+    statusEl.style.marginTop = '8px';
+    document.getElementById('orderModalBody').appendChild(statusEl);
+  }
+  statusEl.textContent = 'Идёт отправка заказа, подождите...';
+
+  const controller = new AbortController();
+  const timeoutMs = 15000; // 15 seconds
+  const timeoutId = setTimeout(()=> controller.abort(), timeoutMs);
+
   try{
-    // send POST to worker URL
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(lastOrder)
+      body: JSON.stringify(lastOrder),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
     const data = await res.json().catch(()=>({ ok: res.ok }));
-    closeOrderModal();
     if(res.ok){
-      // show generic success modal
-      openModal();
+      statusEl.textContent = 'Заказ успешно отправлен.';
+      // small delay so user sees the message
+      setTimeout(()=>{
+        closeOrderModal();
+        openModal();
+      }, 600);
       console.log('Order sent', data);
     } else {
+      statusEl.textContent = 'Ошибка отправки заказа на сервер. Попробуйте позже.';
       alert('Ошибка отправки заказа на сервер. Попробуйте позже.');
     }
   }catch(err){
+    clearTimeout(timeoutId);
     console.error('send order err', err);
-    alert('Не удалось отправить заказ. Проверьте соединение.');
+    if(err && err.name === 'AbortError'){
+      statusEl.textContent = 'Время ожидания соединения истекло (15s). Попробуйте ещё раз.';
+      alert('Время ожидания соединения истекло (15s). Попробуйте ещё раз.');
+    } else {
+      statusEl.textContent = 'Не удалось отправить заказ. Проверьте соединение.';
+      alert('Не удалось отправить заказ. Проверьте соединение.');
+    }
+  }finally{
+    if(confirmBtn){ confirmBtn.disabled = false; confirmBtn.textContent = origText; }
   }
 }
 
