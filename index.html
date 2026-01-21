@@ -225,11 +225,13 @@
   }
 
   .full-catalog {
-    margin-top:20px;
-    display:grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap:16px;
-  }
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 260px));
+  gap: 16px;
+  justify-content: center;
+}
+
   .catalog-item {
     background:#fff; border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(0,0,0,0.04); transition:transform 0.2s, box-shadow 0.2s; cursor:pointer; border:1px solid #f2f2f2;
   }
@@ -260,8 +262,20 @@
   .modal .close { position:absolute; right:10px; top:8px; background:transparent; border:none; font-size:18px; cursor:pointer; }
 
   /* =========================
-     GENERATE
+    IMAGE LIGHTBOX (full-screen viewer for product images)
+    ========================= */
+  .img-lightbox { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,0.88); z-index:3000; }
+  .img-lightbox.show { display:flex; }
+  .img-lightbox img { max-width:95vw; max-height:95vh; object-fit:contain; border-radius:8px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+  .img-lightbox .close { position:absolute; right:18px; top:14px; background:transparent; border:none; color:#fff; font-size:22px; cursor:pointer; }
+
+  /* =========================
+    GENERATE
      ========================= */
+  /* site footer link to licence page (small, fixed, visible on every page) */
+  .site-footer { position: fixed; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; z-index: 1100; pointer-events: auto; }
+  .site-footer a { font-size:13px; color: #444; text-decoration: none; background: rgba(255,255,255,0.92); padding:6px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); box-shadow: 0 6px 18px rgba(0,0,0,0.04); }
+  .site-footer a:focus, .site-footer a:hover { text-decoration: underline; }
   .gen-wrap { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; margin-top:12px; }
   .gen-left { width:740px; max-width:100%; }
   textarea#prompt { width:720px; height:240px; padding:12px; border-radius:10px; border:1px solid #ddd; resize:none; font-size:15px; }
@@ -461,6 +475,17 @@
   </div>
 </div>
 
+<!-- IMAGE LIGHTBOX: full-screen image viewer (opened when clicking product main image) -->
+<div id="imgLightbox" class="img-lightbox" role="dialog" aria-hidden="true" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="Просмотр изображения" onclick="event.stopPropagation();" />
+  <button class="close" aria-label="Закрыть" onclick="closeLightbox()">✕</button>
+</div>
+
+<!-- SITE FOOTER LINK: visible on every page -->
+<div class="site-footer" aria-hidden="false">
+  <a href="licence.html" id="licenseLink">Пользовательское соглашение</a>
+</div>
+
 <script>
 /* =========================================================================
    JAVASCRIPT: все требуемые функции и логика (имена нельзя менять)
@@ -481,10 +506,10 @@
 const placeholder_1a = 'https://media.printables.com/media/prints/1181036/images/8883329_ed92587f-7bdb-4584-8233-bd0fdd19ab49_0d9875d4-1d97-4881-b12a-bc90166c6428/thumbs/inside/1280x960/jpg/photo_5850211852401886192_y.webp';
 const placeholder_1b = 'https://media.printables.com/media/prints/1181036/images/8883325_4171b6b0-9d2a-4e67-8123-9037827e8a2e_e2910d92-b739-4cc3-bf1d-a3c7aa70f3b4/thumbs/inside/1280x960/jpg/photo_5850211852401886202_y.webp';
 const placeholder_2a = 'https://media.printables.com/media/prints/499926/images/4065564_4fc7cfbe-ba74-498e-b4b9-0bcfb5f732b6/thumbs/inside/1280x960/png/lpcats1.webp';
-const placeholder_2b = 'https://via.placeholder.com/160x120?text=Model+2+thumb';
-const placeholder_3a = 'https://via.placeholder.com/520x380?text=Model+3';
+const placeholder_2b = 'https://media.printables.com/media/prints/499926/images/4066858_cef3a4e6-a202-47d8-83e1-4fa32c9f2ad9/thumbs/inside/1280x960/jpg/20230606_193043.webp';
+const placeholder_3a = 'https://i.ibb.co/DHJrNq06/image.png';
 const placeholder_3b = 'https://via.placeholder.com/160x120?text=Model+3+thumb';
-const placeholder_4a = 'https://via.placeholder.com/520x380?text=Model+4';
+const placeholder_4a = 'https://media.printables.com/media/prints/1081189/images/8175389_c45cbb2a-e272-4e80-a2ff-784ca7bef582_691a79f9-26d6-464a-952a-8820d19188d9/thumbs/inside/1280x960/webp/ae42d560-7f78-4882-aac6-f0883ef6e67a.webp';
 const placeholder_4b = 'https://via.placeholder.com/160x120?text=Model+4+thumb';
 const placeholder_5a = 'https://via.placeholder.com/520x380?text=Model+5';
 const placeholder_5b = 'https://via.placeholder.com/160x120?text=Model+5+thumb';
@@ -513,12 +538,17 @@ const mainCatalogUrls = [
   placeholder_9b, // product 9
   placeholder_10b // product 10
 ];
+// Default sizes used when a product does not define its own `sizes` array.
+// Edit these or add a `sizes` property to individual products below.
+const defaultSizes = ["4см","8см","10см","15см"];
 const products = [
   // name = "Модель 1", price = "X ₽", description = "...", images = [...]
-  { name: "Медведь на ключи", price: "150₽, 200₽, 250₽, 300₽", description: "Описание модели 1", images: [placeholder_1a, placeholder_1b] },
-  { name: "Модель 2", price: "X ₽", description: "Описание модели 2", images: [placeholder_2a, placeholder_2b] },
-  { name: "Модель 3", price: "X ₽", description: "Описание модели 3", images: [placeholder_3a, placeholder_3b] },
-  { name: "Модель 4", price: "X ₽", description: "Описание модели 4", images: [placeholder_4a, placeholder_4b] },
+  // Example: this product has three available sizes
+  { name: "Медведь на ключи", price: "150₽, 200₽, 250₽, 300₽", description: "Медведи на ключи или в качестве фигурки.", images: [placeholder_1a, placeholder_1b], sizes: ["4см","6см","8см","10см","12см"] },
+  // Example: this product supports only two larger sizes
+  { name: "Коты", price: "X ₽", description: "Милые low-poly котики. Вес: 19 грамм", images: [placeholder_2a, placeholder_2b], sizes: ["5см", "10см","12см"] },
+  { name: "Death monarch", price: "X ₽", description: "Фигурка Death monarch с черепом.", images: [placeholder_3a, placeholder_3b] },
+  { name: "Desert eagle", price: "X ₽", description: "Декоративный пистолет desert eagle. На фото пистолет без обработки.", images: [placeholder_4a, placeholder_4b] },
   { name: "Модель 5", price: "X ₽", description: "Описание модели 5", images: [placeholder_5a, placeholder_5b] },
   { name: "Модель 6", price: "X ₽", description: "Описание модели 6", images: [placeholder_6a, placeholder_6b] },
   { name: "Модель 7", price: "X ₽", description: "Описание модели 7", images: [placeholder_7a, placeholder_7b] },
@@ -544,8 +574,14 @@ function renderCatalog(list){
     const thumb = document.createElement('div');
     thumb.className = 'thumb';
     // show image background if images[0] present (treat any non-empty string as path)
-  // prefer explicit main-catalog URL list if provided, otherwise use product images[0]
-  const imgVal = (typeof mainCatalogUrls !== 'undefined' && mainCatalogUrls[idx]) ? mainCatalogUrls[idx] : ((p.images && p.images[0]) || '');
+    // prefer explicit main-catalog URL list if provided, otherwise use product images[0]
+    // NOTE: when `list` is a filtered subset, `idx` is relative to that subset. We must
+    // resolve the product's original index in the master `products` array to pick the
+    // matching entry in `mainCatalogUrls`.
+    const origIdx = (Array.isArray(window.products) ? products.findIndex(pr => pr === p) : -1);
+    const imgVal = (typeof mainCatalogUrls !== 'undefined' && origIdx >= 0 && mainCatalogUrls[origIdx])
+      ? mainCatalogUrls[origIdx]
+      : ((p.images && p.images[0]) || '');
     if(imgVal){
       // wrap in quotes to support URLs with query strings
       thumb.style.backgroundImage = `url("${imgVal}")`;
@@ -592,9 +628,11 @@ function searchModels(q){
    Не переименовывать.
    ========================= */
 let currentProduct = null;
+let currentImageIndex = 0; // index of the image currently shown in the product main area
+let _lbKeyHandler = null;
 function openProduct(p){
   currentProduct = p;
-
+  currentImageIndex = 0;
   document.getElementById('productName').textContent = p.name;
   document.getElementById('productPrice').textContent = 'Цена печати: ' + (p.price || 'X ₽');
   document.getElementById('productDescription').textContent = p.description || '';
@@ -609,8 +647,14 @@ function openProduct(p){
     main.style.backgroundImage = `url("${mainVal}")`;
     main.style.backgroundSize = 'cover';
     main.style.backgroundPosition = 'center';
+    main.style.cursor = 'pointer';
+    // clicking the main image opens the full-screen lightbox viewer
+    main.onclick = () => { const url = (currentProduct && currentProduct.images && currentProduct.images[currentImageIndex]) || ''; if(url) openLightbox(url); };
+    main.onkeypress = (e) => { if(e.key === 'Enter'){ const url = (currentProduct && currentProduct.images && currentProduct.images[currentImageIndex]) || ''; if(url) openLightbox(url); } };
   } else {
     main.textContent = 'Изображение';
+    main.style.cursor = 'default';
+    main.onclick = null;
   }
 
   const thumbs = document.getElementById('productThumbs');
@@ -632,14 +676,27 @@ function openProduct(p){
   });
 
   // defaults
+  // color options: keep existing static buttons and reset active state
   document.querySelectorAll('#colorOptions .option-btn').forEach((el, idx) => {
     el.classList.toggle('active', idx===0);
     el.setAttribute('aria-pressed', idx===0 ? 'true' : 'false');
   });
-  document.querySelectorAll('#sizeOptions .option-btn').forEach((el, idx) => {
-    el.classList.toggle('active', idx===0);
-    el.setAttribute('aria-pressed', idx===0 ? 'true' : 'false');
-  });
+
+  // size options: render buttons from product.sizes if present, otherwise use defaultSizes
+  const sizeWrap = document.getElementById('sizeOptions');
+  if(sizeWrap){
+    const sizes = (p.sizes && Array.isArray(p.sizes) && p.sizes.length>0) ? p.sizes : (window.defaultSizes || []);
+    sizeWrap.innerHTML = '';
+    sizes.forEach((sz, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn' + (i===0 ? ' active' : '');
+      btn.setAttribute('data-value', sz);
+      btn.setAttribute('aria-pressed', i===0 ? 'true' : 'false');
+      btn.textContent = sz;
+      btn.onclick = () => select(btn);
+      sizeWrap.appendChild(btn);
+    });
+  }
 
   goPage('product');
 }
@@ -649,6 +706,7 @@ function openProduct(p){
    ========================= */
 function changeImg(index){
   if(!currentProduct) return;
+  currentImageIndex = index;
   const main = document.getElementById('productMainImg');
   const val = currentProduct.images[index] || '';
   main.style.backgroundImage = '';
@@ -657,8 +715,10 @@ function changeImg(index){
     main.style.backgroundImage = `url("${val}")`;
     main.style.backgroundSize = 'cover';
     main.style.backgroundPosition = 'center';
+    main.style.cursor = 'pointer';
   } else {
     main.textContent = 'Изображение';
+    main.style.cursor = 'default';
   }
   document.querySelectorAll('#productThumbs .mini').forEach((el,i)=> el.classList.toggle('active', i===index));
 }
@@ -687,6 +747,33 @@ function goPage(id){
    ========================= */
 function openModal(){ document.getElementById('modalBackdrop').classList.add('show'); document.getElementById('modalBackdrop').setAttribute('aria-hidden','false'); }
 function closeModal(){ document.getElementById('modalBackdrop').classList.remove('show'); document.getElementById('modalBackdrop').setAttribute('aria-hidden','true'); }
+
+/* =========================
+   IMAGE LIGHTBOX API
+   openLightbox(url) — show full-screen viewer
+   closeLightbox() — hide it
+   ========================= */
+function openLightbox(url){
+  if(!url) return;
+  const lb = document.getElementById('imgLightbox');
+  const img = document.getElementById('lightboxImg');
+  img.src = url;
+  lb.classList.add('show');
+  lb.setAttribute('aria-hidden','false');
+  // add ESC handler to close lightbox
+  _lbKeyHandler = (e) => { if(e.key === 'Escape') closeLightbox(); };
+  document.addEventListener('keydown', _lbKeyHandler);
+}
+
+function closeLightbox(){
+  const lb = document.getElementById('imgLightbox');
+  if(!lb) return;
+  lb.classList.remove('show');
+  lb.setAttribute('aria-hidden','true');
+  const img = document.getElementById('lightboxImg');
+  if(img) img.src = '';
+  if(_lbKeyHandler) { document.removeEventListener('keydown', _lbKeyHandler); _lbKeyHandler = null; }
+}
 
 /* =========================
    placeOrder() — сохраняет опции и открывает модалку
@@ -737,7 +824,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   ['previewCard0','previewCard1','previewCard2'].forEach((id,i)=>{
     const el = document.getElementById(id);
     const prod = products[i];
-    const img = prod && prod.images && (prod.images[1] || prod.images[0]) || '';
+    const img = prod && prod.images && (prod.images[0] || prod.images[1]) || '';
     if(el && img){
       el.style.backgroundImage = `url("${img}")`;
       el.style.backgroundSize = 'cover';
