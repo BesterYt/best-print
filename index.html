@@ -294,6 +294,47 @@
     input.search-input { width:100%; }
     header.topbar { padding:0 12px; }
   }
+
+  /* MOBILE: tighter layout adjustments for small phones (<=600px) */
+  @media (max-width:600px){
+    header.topbar { height:64px; padding:0 10px; }
+    header .left { gap:8px; }
+    header .left button { padding:8px 10px; height:40px; font-size:14px; }
+    header .brand { font-size:16px; padding:6px 8px; }
+
+    /* Hero adjustments */
+    .hero { align-items:flex-end; padding:16px; min-height: calc(100vh - var(--header-h)); }
+    #home h1.hero-title { font-size:32px; }
+    #home p.hero-sub { font-size:16px; }
+
+    /* Catalog preview stacks and allows horizontal scroll for cards */
+    .catalog-preview { flex-direction:column; align-items:flex-start; gap:12px; }
+    .catalog-preview .cards { display:flex; gap:8px; overflow-x:auto; width:100%; padding-bottom:6px; }
+    .catalog-preview .catalog-card { flex: 0 0 120px; width:120px; height:90px; }
+    .catalog-preview .open-catalog { width:100%; }
+
+    /* Catalog grid: flexible single-column on small screens */
+    .full-catalog { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:0 8px; }
+
+    .catalog-item .thumb { height:140px; }
+
+    /* Product page stacks vertically */
+    .product-wrap { flex-direction:column; gap:12px; }
+    .product-left, .product-main, .product-right { width:100%; }
+    .product-main { height:260px; border-radius:10px; }
+    .thumbs .mini { width:64px; height:52px; }
+
+    /* Option buttons and order button sizing for touch */
+    .option-btn { min-width:64px; padding:8px 10px; font-size:14px; }
+    .order-btn { width:100%; height:48px; }
+
+    /* Modals and lightbox adapt to narrow screens */
+    .modal { width:92%; max-width:420px; padding:16px; }
+    .img-lightbox img { max-width:98vw; max-height:78vh; }
+
+    /* Footer link spacing */
+    .site-footer { bottom:8px; }
+  }
 </style>
 </head>
 <body>
@@ -555,12 +596,12 @@ const mainCatalogUrls = [
 // Edit these or add a `sizes` property to individual products below.
 const defaultSizes = ["4см","8см","10см","15см"];
 const products = [
-  // name = "Модель 1", price = "X ₽", description = "...", images = [...]
-  // Example: this product has three available sizes
-  { name: "Медведь на ключи", price: "150₽, 200₽, 250₽, 300₽", description: "Медведи на ключи или в качестве фигурки.", images: [placeholder_1a, placeholder_1b], sizes: ["4см","6см","8см","10см","12см"] },
-  // Example: this product supports only two larger sizes
-  { name: "Коты", price: "X ₽", description: "Милые low-poly котики. Вес: 19 грамм", images: [placeholder_2a, placeholder_2b], sizes: ["5см", "10см","12см"] },
-  { name: "Death monarch", price: "X ₽", description: "Фигурка Death monarch с черепом.", images: [placeholder_3a, placeholder_3b] },
+  // name = "Модель 1", prices = { sizeLabel: numericPrice }, description = "...", images = [...]
+  // Example: this product has per-size prices (numbers are in ₽)
+  { name: "Медведь на ключи", description: "Медведи на ключи или в качестве фигурки.", images: [placeholder_1a, placeholder_1b], sizes: ["4см","6см","8см","10см","12см"], prices: { "4см": 150, "6см": 180, "8см": 220, "10см": 270, "12см": 320 } },
+  // Example: this product supports only a few sizes with prices
+  { name: "Коты", description: "Милые low-poly котики. Вес: 19 грамм", images: [placeholder_2a, placeholder_2b], sizes: ["5см", "10см","12см"], prices: { "5см": 190, "10см": 300, "12см": 360 } },
+  { name: "Death monarch", price: "X ₽", description: "Фигурка Death monarch с черепом.", images: [placeholder_3a, placeholder_3b], prices: { "5см": 190, "10см": 300, "12см": 360 } },
   { name: "Desert eagle", price: "X ₽", description: "Декоративный пистолет desert eagle. На фото пистолет без обработки.", images: [placeholder_4a, placeholder_4b] },
   { name: "Модель 5", price: "X ₽", description: "Описание модели 5", images: [placeholder_5a, placeholder_5b] },
   { name: "Модель 6", price: "X ₽", description: "Описание модели 6", images: [placeholder_6a, placeholder_6b] },
@@ -611,8 +652,10 @@ function renderCatalog(list){
     title.textContent = p.name;
     item.appendChild(title);
 
-    const price = document.createElement('p');
-    price.textContent = 'Цена печати: ' + (p.price || 'X ₽');
+  const price = document.createElement('p');
+  // display minimum price or legacy price string
+  const min = getMinPrice(p);
+  price.textContent = 'Цена печати: ' + (min || (p.price || 'X ₽'));
     item.appendChild(price);
 
     item.onclick = () => openProduct(p);
@@ -620,6 +663,47 @@ function renderCatalog(list){
 
     grid.appendChild(item);
   });
+}
+
+/* =========================
+   Pricing helpers
+   - getPriceForProduct(product, size) => { value:number, text:string } or null
+   - formatPrice(n) => '123 ₽'
+   - getMinPrice(product) => formatted text or null
+   ========================= */
+function formatPrice(n){
+  if(typeof n === 'number' && !isNaN(n)) return String(n) + ' ₽';
+  return String(n);
+}
+
+function getPriceForProduct(product, size){
+  if(!product) return null;
+  // prefer explicit prices mapping
+  if(product.prices && typeof product.prices === 'object'){
+    if(size && typeof product.prices[size] !== 'undefined'){
+      const v = product.prices[size];
+      return { value: Number(v), text: formatPrice(Number(v)) };
+    }
+  }
+  // legacy: product.price string with comma-separated values — try to map by index using sizes
+  if(product.price && typeof product.price === 'string' && product.price.indexOf(',') !== -1){
+    const parts = product.price.split(',').map(s=>s.trim());
+    const sizes = (product.sizes && product.sizes.length) ? product.sizes : (window.defaultSizes || []);
+    const idx = sizes.indexOf(size);
+    if(idx >=0 && parts[idx]) return { value: undefined, text: parts[idx] };
+  }
+  return null;
+}
+
+function getMinPrice(product){
+  if(!product) return null;
+  if(product.prices && typeof product.prices === 'object'){
+    const vals = Object.values(product.prices).map(v=>Number(v)).filter(v=>!isNaN(v));
+    if(vals.length>0) return 'от ' + formatPrice(Math.min.apply(null, vals));
+  }
+  // fallback: if legacy price string, return it directly
+  if(product.price && typeof product.price === 'string') return product.price;
+  return null;
 }
 
 /* =========================
@@ -647,7 +731,13 @@ function openProduct(p){
   currentProduct = p;
   currentImageIndex = 0;
   document.getElementById('productName').textContent = p.name;
-  document.getElementById('productPrice').textContent = 'Цена печати: ' + (p.price || 'X ₽');
+  // set initial product price display. If product has per-size prices, we'll update when sizes render/select.
+  const priceEl = document.getElementById('productPrice');
+  const initialPrice = getMinPrice(p) || (p.price || 'X ₽');
+  priceEl.textContent = 'Цена печати: ' + initialPrice;
+  // data attributes for currently selected price (numeric and text)
+  priceEl.dataset.priceText = (typeof initialPrice === 'string') ? initialPrice : formatPrice(initialPrice);
+  priceEl.dataset.priceValue = (typeof initialPrice === 'number') ? String(initialPrice) : '';
   document.getElementById('productDescription').textContent = p.description || '';
 
   const main = document.getElementById('productMainImg');
@@ -704,10 +794,24 @@ function openProduct(p){
       const btn = document.createElement('button');
       btn.className = 'option-btn' + (i===0 ? ' active' : '');
       btn.setAttribute('data-value', sz);
+      // attach computed price for this size (if available)
+      const priceInfo = getPriceForProduct(p, sz);
+      if(priceInfo){
+        btn.dataset.priceText = priceInfo.text;
+        if(typeof priceInfo.value !== 'undefined') btn.dataset.priceValue = String(priceInfo.value);
+      }
       btn.setAttribute('aria-pressed', i===0 ? 'true' : 'false');
       btn.textContent = sz;
       btn.onclick = () => select(btn);
       sizeWrap.appendChild(btn);
+      // if this is the default (first) size, set product price accordingly
+      if(i===0){
+        if(priceInfo){
+          priceEl.textContent = 'Цена печати: ' + priceInfo.text;
+          priceEl.dataset.priceText = priceInfo.text;
+          priceEl.dataset.priceValue = (typeof priceInfo.value !== 'undefined') ? String(priceInfo.value) : '';
+        }
+      }
     });
   }
 
@@ -744,6 +848,25 @@ function select(btn){
   parent.querySelectorAll('.option-btn').forEach(el=>{ el.classList.remove('active'); el.setAttribute('aria-pressed','false'); });
   btn.classList.add('active');
   btn.setAttribute('aria-pressed','true');
+  // If this is a size selection on the product page, update displayed price
+  try{
+    if(parent && parent.id === 'sizeOptions'){
+      const size = btn.dataset.value;
+      const priceEl = document.getElementById('productPrice');
+      // prefer dataset price on button (set during openProduct), otherwise compute
+      let text = btn.dataset.priceText || '';
+      let val = btn.dataset.priceValue || '';
+      if(!text && window.currentProduct){
+        const info = getPriceForProduct(window.currentProduct, size);
+        if(info){ text = info.text; val = (typeof info.value !== 'undefined') ? String(info.value) : ''; }
+      }
+      if(text){
+        priceEl.textContent = 'Цена печати: ' + text;
+        priceEl.dataset.priceText = text;
+        priceEl.dataset.priceValue = val || '';
+      }
+    }
+  }catch(e){ console.error('price update error', e); }
 }
 
 /* =========================
@@ -867,7 +990,11 @@ function placeOrder(){
   const size = document.querySelector('#sizeOptions .option-btn.active')?.dataset?.value || null;
   // build order object
   const orderId = 'ORD-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8).toUpperCase();
-  lastOrder = { id: orderId, product: currentProduct.name, price: currentProduct.price, color, size, date: new Date().toISOString() };
+  // determine selected price (from product price element data attributes if available)
+  const priceEl = document.getElementById('productPrice');
+  const selectedPriceText = (priceEl && priceEl.dataset && priceEl.dataset.priceText) ? priceEl.dataset.priceText : (currentProduct.price || 'X ₽');
+  const selectedPriceValue = (priceEl && priceEl.dataset && priceEl.dataset.priceValue) ? Number(priceEl.dataset.priceValue) : undefined;
+  lastOrder = { id: orderId, product: currentProduct.name, price: selectedPriceText, priceValue: selectedPriceValue, color, size, date: new Date().toISOString() };
 
   // ask for Telegram username (client-side)
   let tg = window.prompt('Укажите ваш Telegram username (например @username).\nЕсли у вас нет username, укажите телефон или оставьте пустым:','@');
