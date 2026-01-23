@@ -35,7 +35,7 @@
 
   /* базовый сброс */
   *{box-sizing:border-box}
-  html,body{height:100%; margin:0; background:var(--bg); color:var(--black); font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;}
+  html,body{height:100%; margin:0; background:var(--bg); color:var(--black); font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; overflow-x:hidden; }
   button{font-family:inherit; cursor:pointer}
   a{color:inherit}
 
@@ -342,6 +342,41 @@
 
     /* Footer link spacing */
     .site-footer { bottom:8px; }
+  }
+
+  /* VERY SMALL PHONES: extra adjustments to prevent overflow and cut text */
+  @media (max-width:420px){
+    /* ensure hero content wraps and doesn't force horizontal scroll */
+    #home .inner { padding: 0 12px; box-sizing: border-box; }
+    #home h1.hero-title { font-size:28px; line-height:1.1; word-break:break-word; white-space:normal; }
+    #typewriter { white-space:normal; border-right:none; display:block; font-size:14px; }
+
+    /* make search and controls stack nicely */
+    .title-row { flex-direction:column; align-items:stretch; gap:8px; }
+    input.search-input { width:100% !important; max-width:100%; }
+    .to-gen { width:100%; }
+
+    /* shrink preview cards and ensure no overflow */
+    .catalog-preview .cards { gap:8px; }
+    .catalog-preview .catalog-card { width:100px; height:76px; font-size:12px; }
+
+    /* catalog grid: smaller cards */
+    .full-catalog { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; padding:0 8px; }
+
+    /* product page: reduce image height and thumb size */
+    .product-main { height:200px; }
+    .thumbs .mini { width:56px; height:44px; }
+    .option-btn { padding:6px 8px; min-width:56px; font-size:13px; }
+    .order-btn { width:100%; padding:12px; }
+
+    /* generation form: ensure left column doesn't force width */
+    .gen-left { width:100% !important; max-width:100%; }
+    textarea#prompt { width:100% !important; }
+    input#email { width:100% !important; }
+
+    /* ensure modals fit */
+    .modal { width:94%; padding:12px; }
+    .gen-cover .panel { width:94%; }
   }
 </style>
 </head>
