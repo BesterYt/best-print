@@ -284,6 +284,14 @@
 
   .send-btn { margin-top:12px; padding:12px 18px; border-radius:10px; background:var(--accent); border:none; cursor:pointer; font-weight:700; width:160px; height:44px; }
 
+  /* Generation page cover: 'В разработке' */
+  .gen-cover { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); z-index: 2500; }
+  .gen-cover.show { display:flex; }
+  .gen-cover .panel { background: #fff; padding:20px 18px; border-radius:12px; text-align:center; width:92%; max-width:420px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .gen-cover .panel h3 { margin:0; font-size:20px; color:#111; }
+  .gen-cover .panel p { margin:8px 0 0 0; color:#555; }
+  .gen-cover .panel button { margin-top:12px; padding:10px 14px; border-radius:10px; border:none; background:var(--accent); font-weight:700; cursor:pointer; }
+
   /* =========================
      Медиа-запросы
      ========================= */
@@ -343,7 +351,7 @@
 <header class="topbar" role="banner" aria-label="Верхняя панель">
   <div class="left" role="navigation" aria-label="Левая навигация">
     <button id="navCatalog" aria-label="Каталог" onclick="goPage('order')">Каталог</button>
-    <button id="navGen" aria-label="Генерация" onclick="goPage('gen')">Генерация</button>
+    <button id="navGen" aria-label="Генерация" onclick="showGenCover()">Генерация</button>
     <button id="navAuthtor" aria-label="О нас" onclick="goPage('AR')">О нас</button>
   </div>
   <div class="brand" id="brand" role="link" aria-label="Best Print — на главную" onclick="goPage('home')">Best Print</div>
@@ -423,7 +431,7 @@
 
     <div class="title-row" style="margin-top:12px;">
       <input id="searchInput" class="search-input" type="search" placeholder="Поиск готовых моделей" oninput="searchModels(this.value)" aria-label="Поиск готовых моделей" style="width:520px; height:52px;" />
-      <button class="to-gen" aria-label="Перейти к генерации" onclick="goPage('gen')">Генерировать</button>
+  
     </div>
 
     <div id="catalogGrid" class="full-catalog" aria-live="polite" style="margin-top:18px;">
@@ -512,7 +520,15 @@
     <button class="close" aria-label="Закрыть" onclick="closeModal()">✕</button>
     <div style="font-size:48px; margin-bottom:12px;">✔</div>
     <div style="font-weight:700; font-size:18px;">Заказ успешно размещён</div>
-    <div style="margin-top:8px; color:#666;">Мы свяжемся с вами по указанной почте</div>
+    <div style="margin-top:8px; color:#666;">Мы свяжемся с вами по готовности печати.</div>
+  </div>
+</div>
+<!-- Generation cover (global, shows over current page) -->
+<div id="genCover" class="gen-cover" role="dialog" aria-hidden="true">
+  <div class="panel">
+    <h3>В разработке</h3>
+    <p>Страница генерации сейчас находится в разработке и скоро появится.</p>
+    <button onclick="hideGenCover()" aria-label="Закрыть">Понятно</button>
   </div>
 </div>
 
@@ -563,12 +579,12 @@ const placeholder_2a = 'https://media.printables.com/media/prints/499926/images/
 const placeholder_2b = 'https://media.printables.com/media/prints/499926/images/4066858_cef3a4e6-a202-47d8-83e1-4fa32c9f2ad9/thumbs/inside/1280x960/jpg/20230606_193043.webp';
 const placeholder_3a = 'https://i.ibb.co/DHJrNq06/image.png';
 const placeholder_3b = 'https://via.placeholder.com/160x120?text=Model+3+thumb';
-const placeholder_4a = 'https://media.printables.com/media/prints/1081189/images/8175389_c45cbb2a-e272-4e80-a2ff-784ca7bef582_691a79f9-26d6-464a-952a-8820d19188d9/thumbs/inside/1280x960/webp/ae42d560-7f78-4882-aac6-f0883ef6e67a.webp';
-const placeholder_4b = 'https://via.placeholder.com/160x120?text=Model+4+thumb';
-const placeholder_5a = 'https://via.placeholder.com/520x380?text=Model+5';
-const placeholder_5b = 'https://via.placeholder.com/160x120?text=Model+5+thumb';
-const placeholder_6a = 'https://via.placeholder.com/520x380?text=Model+6';
-const placeholder_6b = 'https://via.placeholder.com/160x120?text=Model+6+thumb';
+const placeholder_4a = 'https://media.printables.com/media/prints/447d73aa-e8a4-4a0c-b0a9-844d9adf7815/images/10383187_78fe6693-65e7-438c-93e8-5d43f1b3bfd7_622bb71b-4ccd-494c-8de7-bf4aa8b7faa3/thumbs/inside/1280x960/webp/fingercatapultv2.webp';
+const placeholder_4b = 'https://media.printables.com/media/prints/57dde178-ad2e-476b-99f0-3712eff7a39e/images/10215974_ebefcd71-02b4-4094-85d8-37088cdb85fb_16de2e45-0f54-4078-8624-be03248b37f1/thumbs/inside/1280x960/jpg/img_5082.webp';
+const placeholder_5a = 'https://media.printables.com/media/prints/178035/images/1667589_5eb7891e-0a97-41fd-a9bb-7cc6b828a244/thumbs/inside/1280x960/jpg/79ce327ccf19c444d662164138038e4b_display_large_17.webp';
+const placeholder_5b = 'https://media.printables.com/media/prints/178035/images/1667590_5d8adbd6-3759-48b0-b1c2-e2aec19ba985/thumbs/inside/1280x960/jpg/7e7fe39c69e6ab74ec0fe0387b2cc5ac_display_large_17.webp';
+const placeholder_6a = 'https://media.printables.com/media/prints/692677/images/5449039_48272317-2020-4424-b43a-03ab9c4b1f1b_d216a460-dc75-4800-96fb-45dae137f843/thumbs/inside/1280x960/jpg/20231225_092434.webp';
+const placeholder_6b = 'https://media.printables.com/media/prints/692677/images/5449015_f744b119-d6d2-4f44-8fdb-367702e12271_8bb6dcc1-7863-4c0d-a103-28934a1297e3/thumbs/inside/1280x960/jpg/20231225_083224.webp';
 const placeholder_7a = 'https://via.placeholder.com/520x380?text=Model+7';
 const placeholder_7b = 'https://via.placeholder.com/160x120?text=Model+7+thumb';
 const placeholder_8a = 'https://via.placeholder.com/520x380?text=Model+8';
@@ -602,8 +618,8 @@ const products = [
   // Example: this product supports only a few sizes with prices
   { name: "Коты", description: "Милые low-poly котики. Вес: 19 грамм", images: [placeholder_2a, placeholder_2b], sizes: ["5см", "10см","12см"], prices: { "5см": 190, "10см": 300, "12см": 360 } },
   { name: "Death monarch", price: "X ₽", description: "Фигурка Death monarch с черепом.", images: [placeholder_3a, placeholder_3b], prices: { "5см": 190, "10см": 300, "12см": 360 } },
-  { name: "Desert eagle", price: "X ₽", description: "Декоративный пистолет desert eagle. На фото пистолет без обработки.", images: [placeholder_4a, placeholder_4b] },
-  { name: "Модель 5", price: "X ₽", description: "Описание модели 5", images: [placeholder_5a, placeholder_5b] },
+  { name: "Катапульта антистресс", price: "100₽", description: "Небольшая катапульта. Может стрелять пульками 9мм (как в игрушечных пистолетах)", images: [placeholder_4a, placeholder_4b] },
+  { name: "Осьминог", price: "130₽", description: "Игрушка Осьминог", images: [placeholder_5a, placeholder_5b], sizes: ["5см"]},
   { name: "Модель 6", price: "X ₽", description: "Описание модели 6", images: [placeholder_6a, placeholder_6b] },
   { name: "Модель 7", price: "X ₽", description: "Описание модели 7", images: [placeholder_7a, placeholder_7b] },
   { name: "Модель 8", price: "X ₽", description: "Описание модели 8", images: [placeholder_8a, placeholder_8b] },
@@ -1010,7 +1026,7 @@ function placeOrder(){
     <p><strong>Код заказа:</strong> ${lastOrder.id}</p>
     <p><strong>Модель:</strong> ${lastOrder.product}</p>
     <p><strong>Размер:</strong> ${lastOrder.size || '-'}; <strong>Цвет:</strong> ${lastOrder.color || '-'}</p>
-    <p>Бот для проверки статуса: <code>@best3dPrintbot</code></p>
+    <p>Менеджер: <code>@Best_print_3D</code></p>
     <p style="margin-top:8px; color:#666;">Сохраните код заказа — после закрытия окна будет предложено подтвердить, что вы сохранили код, и заказ будет отправлен на сервер.</p>
   `;
 
@@ -1045,6 +1061,22 @@ function submitGenerate(){
   const payload = { prompt, email, size };
   // TODO: интегрировать API генерации и отправки почты
   alert('Запрос принят (локально). TODO интегрировать API.\n' + JSON.stringify(payload, null, 2));
+}
+
+/* =========================
+   Generation cover controls
+   ========================= */
+function showGenCover(){
+  const el = document.getElementById('genCover');
+  if(!el) return;
+  el.classList.add('show');
+  el.setAttribute('aria-hidden','false');
+}
+function hideGenCover(){
+  const el = document.getElementById('genCover');
+  if(!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden','true');
 }
 
 /* =========================
