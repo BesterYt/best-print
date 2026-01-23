@@ -1,0 +1,1299 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Best Print — 3D печать</title>
+<style>
+  /* =========================
+     :root - основные переменные (цвета и размеры)
+     ========================= */
+  :root{
+    --bg: #ffffff;           /* фон сайта (строго белый) */
+    --accent: #ffd400;       /* жёлтый акцент */
+    --black: #000000;        /* чёрный для сильных элементов */
+    --overlay: rgba(0,0,0,0.45);
+
+    --header-h: 72px;        /* высота верхней панели (строго 72px) */
+
+    /* размеры в px (обязательно указывать в :root и явно у элементов) */
+    --btn-padding: 12px 20px;
+    --input-width: 520px;
+    --input-height: 52px;
+    --hero-h: calc(100vh - var(--header-h));
+    --catalog-card-w: 300px;
+    --product-image-w: 520px;
+    --product-image-h: 380px;
+    --gen-textarea-w: 720px;
+    --gen-textarea-h: 240px;
+    --file-preview-size: 240px;
+    --email-width: 420px;
+    --email-height: 44px;
+    --border-radius: 12px;
+    --transition-fast: 180ms;
+  }
+
+  /* базовый сброс */
+  *{box-sizing:border-box}
+  html,body{height:100%; margin:0; background:var(--bg); color:var(--black); font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; overflow-x:hidden; }
+  button{font-family:inherit; cursor:pointer}
+  a{color:inherit}
+
+  /* =========================
+     ФИКСИРОВАННАЯ ВЕРХНЯЯ ПАНЕЛЬ (header)
+     position: fixed; top:0; left:0; right:0; height:72px; background:#ffffff;
+     Содержит 3 интерактивных элемента в одну линию:
+       - слева: [Каталог][Генерация]
+       - справа: [Best Print] (кликабельна -> goPage('home'))
+     ========================= */
+  header.topbar{
+    position: fixed;
+    top:0;
+    left:0;
+    right:0;
+    height: var(--header-h); /* 72px */
+    background: #ffffff; /* строго белый */
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+    z-index:1000;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+  }
+  header .left {
+    display:flex;
+    gap:12px;
+    align-items:center;
+  }
+  header .left button {
+    background: var(--accent);
+    color: var(--black);
+    padding: var(--btn-padding);
+    border-radius: 10px;
+    border:1px solid rgba(0,0,0,0.06);
+    height:44px;
+  }
+  header .brand {
+    font-weight:700;
+    font-size:18px;
+    cursor:pointer;
+    user-select:none;
+    padding:8px 12px;
+    border-radius:8px;
+  }
+
+  /* =========================
+     Основной контейнер (контент) - отступ сверху чтобы header не перекрывал контент
+     Каждая секция (.page) должна занимать высоту viewport minus header (полноэкранная)
+     ========================= */
+  main#app {
+    padding-top: var(--header-h); /* чтобы header не перекрывал */
+  }
+  .page{
+    min-height: calc(100vh - var(--header-h)); /* каждая страница полноэкранная */
+    display:none;
+    padding: 24px;
+    box-sizing:border-box;
+  }
+  .page.active{ display:block; }
+
+  /* =========================
+     HOME / HERO
+     ========================= */
+  /* make the hero a positioned flex container so pseudo-elements are anchored
+     to it and its .inner content is centered both vertically and horizontally */
+  .hero{
+    position: relative;
+    min-height: var(--hero-h);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+.hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url('https://media.printables.com/media/prints/499926/images/4065564_4fc7cfbe-ba74-498e-b4b9-0bcfb5f732b6/thumbs/inside/1280x960/png/lpcats1.webp'); /* путь к твоему фону */
+    background-position: center;   /* центрируем изображение */
+    background-size: cover;        /* масштабируем так, чтобы полностью покрывало блок */
+    background-repeat: no-repeat;  /* не повторяем */
+    filter: saturate(0.95) contrast(0.95); /* фильтры можно оставить */
+    z-index: 0;
+}
+
+
+  #home .hero::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background: var(--overlay);
+    z-index:1;
+  }
+  #home .hero .inner {
+    position:relative; z-index:2; max-width:1100px; width:100%;
+  }
+  #home h1.hero-title {
+    margin:0;
+    font-size:64px;
+    color:#ffffff; /* строго белый */
+    cursor:pointer;
+  }
+  #home p.hero-sub {
+    margin-top:12px;
+    font-size:18px;
+    color:#ffffff;
+    opacity:0.95;
+  }
+
+  /* typewriter */
+  #typewriter {
+    margin-top:24px;
+    font-size:20px;
+    color:#ffffff;
+    white-space:nowrap;
+    overflow:hidden;
+    border-right:2px solid rgba(255,255,255,0.8);
+    display:inline-block;
+    vertical-align:middle;
+    opacity:0;
+    transform:translateY(6px);
+    transition: opacity 240ms ease, transform 240ms ease;
+  }
+
+  /* CTA button */
+  #heroOrder {
+    margin-top:28px;
+    padding:12px 20px;
+    border-radius:10px;
+    background: var(--accent);
+    color: var(--black);
+    font-weight:700;
+    border:none;
+    transform: translateX(140px);
+    opacity:0;
+    transition: transform 420ms cubic-bezier(.22,.9,.2,1), opacity 360ms;
+  }
+  #heroOrder.in-place { transform: translateX(0); opacity:1; }
+
+  /* catalog-preview under hero (yellow background) */
+  .catalog-preview {
+    margin-top:24px;
+    background: var(--accent); /* #ffd400 */
+    padding:20px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+  }
+  .catalog-preview .title { font-weight:700; font-size:20px; color:var(--black); }
+  .catalog-preview .cards { display:flex; gap:12px; align-items:center; }
+  .catalog-preview .catalog-card {
+    width:160px; height:120px; border-radius:10px;
+    background: linear-gradient(135deg,#f7f7f7,#e1e1e1);
+    display:flex; align-items:center; justify-content:center; font-weight:700; color:#333;
+  }
+  .catalog-preview .open-catalog {
+    background: var(--black);
+    color:#fff;
+    padding:12px 20px;
+    border-radius:999px;
+    border:none;
+    width:200px; height:44px;
+  }
+
+  /* =========================
+     TEAM / ABOUT (AR page)
+     ========================= */
+  #AR .team-wrap { max-width:1100px; width:100%; margin:12px 0; display:flex; flex-direction:column; gap:12px; }
+  #AR .member { background:#fff; border-radius:12px; padding:14px; box-shadow:0 6px 18px rgba(0,0,0,0.04); display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  #AR .member .meta { display:flex; flex-direction:column; gap:4px; }
+  #AR .member .name { font-weight:700; font-size:16px; }
+  #AR .member .role { color:#666; font-size:14px; }
+  #AR .member .links a { color:var(--black); text-decoration:none; margin-left:8px; font-weight:600; }
+  @media (max-width:900px){ #AR .member{ flex-direction:column; align-items:flex-start; } #AR .member .links{ margin-top:8px; } }
+
+  /* =========================
+     ORDER (каталог)
+     ========================= */
+  #order .title-row { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:6px; }
+  input.search-input {
+    width:520px; height:52px; padding:12px 14px; border-radius:10px; border:1px solid #cfcfcf; font-size:16px;
+  }
+  button.to-gen {
+    padding:10px 14px; border-radius:10px; background:var(--accent); border:none; height:44px;
+  }
+
+  .full-catalog {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 260px));
+  gap: 16px;
+  justify-content: center;
+}
+
+  .catalog-item {
+    background:#fff; border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(0,0,0,0.04); transition:transform 0.2s, box-shadow 0.2s; cursor:pointer; border:1px solid #f2f2f2;
+  }
+  .catalog-item:hover { transform: translateY(-6px); box-shadow:0 12px 30px rgba(0,0,0,0.08); }
+  .catalog-item .thumb { width:100%; height:160px; border-radius:8px; background:linear-gradient(135deg,#f4f4f4,#e9e9e9); display:flex; align-items:center; justify-content:center; font-weight:700; color:#666; margin-bottom:10px; }
+  .catalog-item h3 { margin:0; font-size:16px; }
+  .catalog-item p { margin:8px 0 0 0; color:#666; font-size:13px; }
+
+  /* =========================
+     PRODUCT
+     ========================= */
+  #product .product-wrap { display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap; margin-top:12px; }
+  .product-left { width:520px; }
+  .product-main { width:520px; height:380px; border-radius:12px; background:linear-gradient(135deg,#f4f4f4,#e9e9e9); display:flex; align-items:center; justify-content:center; font-weight:700; color:#666; }
+  .thumbs { display:flex; gap:8px; margin-top:10px; }
+  .thumbs .mini { width:86px; height:68px; border-radius:8px; background:#efefef; display:flex; align-items:center; justify-content:center; cursor:pointer; border:2px solid transparent; }
+  .thumbs .mini.active { border-color: var(--accent); transform:scale(1.02); }
+  .option-btn { padding:8px 12px; border-radius:10px; border:1px solid #ddd; background:#fff; cursor:pointer; min-width:80px; }
+  .option-btn.active { border-color:var(--black); box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+  .order-btn { background:var(--black); color:#fff; padding:12px 18px; border-radius:10px; border:none; cursor:pointer; width:180px; height:48px; font-weight:700; margin-top:12px; }
+
+  /* =========================
+     MODAL
+     ========================= */
+  .modal-backdrop { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,0.35); z-index:2000; }
+  .modal-backdrop.show { display:flex; }
+  .modal { width:420px; background:#fff; border-radius:12px; padding:22px; border:2px solid #e0e0e0; text-align:center; position:relative; }
+  .modal .close { position:absolute; right:10px; top:8px; background:transparent; border:none; font-size:18px; cursor:pointer; }
+
+  /* =========================
+    IMAGE LIGHTBOX (full-screen viewer for product images)
+    ========================= */
+  .img-lightbox { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background: rgba(0,0,0,0.88); z-index:3000; }
+  .img-lightbox.show { display:flex; }
+  .img-lightbox img { max-width:95vw; max-height:95vh; object-fit:contain; border-radius:8px; box-shadow: 0 12px 40px rgba(0,0,0,0.6); }
+  .img-lightbox .close { position:absolute; right:18px; top:14px; background:transparent; border:none; color:#fff; font-size:22px; cursor:pointer; }
+
+  /* =========================
+    GENERATE
+     ========================= */
+  /* site footer link to licence page (small, fixed, visible on every page) */
+  .site-footer { position: fixed; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; z-index: 1100; pointer-events: auto; }
+  .site-footer a { font-size:13px; color: #444; text-decoration: none; background: rgba(255,255,255,0.92); padding:6px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.06); box-shadow: 0 6px 18px rgba(0,0,0,0.04); }
+  .site-footer a:focus, .site-footer a:hover { text-decoration: underline; }
+  .gen-wrap { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; margin-top:12px; }
+  .gen-left { width:740px; max-width:100%; }
+  textarea#prompt { width:720px; height:240px; padding:12px; border-radius:10px; border:1px solid #ddd; resize:none; font-size:15px; }
+  .file-preview { width:240px; height:240px; border-radius:10px; background:#f7f7f7; border:1px dashed #ddd; display:flex; align-items:center; justify-content:center; }
+  input#email { width:420px; height:44px; padding:8px 12px; border-radius:8px; border:1px solid #ccc; }
+
+  .send-btn { margin-top:12px; padding:12px 18px; border-radius:10px; background:var(--accent); border:none; cursor:pointer; font-weight:700; width:160px; height:44px; }
+
+  /* Generation page cover: 'В разработке' */
+  .gen-cover { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.6); z-index: 2500; }
+  .gen-cover.show { display:flex; }
+  .gen-cover .panel { background: #fff; padding:20px 18px; border-radius:12px; text-align:center; width:92%; max-width:420px; box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+  .gen-cover .panel h3 { margin:0; font-size:20px; color:#111; }
+  .gen-cover .panel p { margin:8px 0 0 0; color:#555; }
+  .gen-cover .panel button { margin-top:12px; padding:10px 14px; border-radius:10px; border:none; background:var(--accent); font-weight:700; cursor:pointer; }
+
+  /* =========================
+     Медиа-запросы
+     ========================= */
+  @media (max-width:900px){
+    #home h1.hero-title{ font-size:40px; }
+    .product-left, .product-main { width:100%; height:auto; }
+    textarea#prompt { width:100%; }
+    input.search-input { width:100%; }
+    header.topbar { padding:0 12px; }
+  }
+
+  /* MOBILE: tighter layout adjustments for small phones (<=600px) */
+  @media (max-width:600px){
+    header.topbar { height:64px; padding:0 10px; }
+    header .left { gap:8px; }
+    header .left button { padding:8px 10px; height:40px; font-size:14px; }
+    header .brand { font-size:16px; padding:6px 8px; }
+
+    /* Hero adjustments */
+    .hero { align-items:flex-end; padding:16px; min-height: calc(100vh - var(--header-h)); }
+    #home h1.hero-title { font-size:32px; }
+    #home p.hero-sub { font-size:16px; }
+
+    /* Catalog preview stacks and allows horizontal scroll for cards */
+    .catalog-preview { flex-direction:column; align-items:flex-start; gap:12px; }
+    .catalog-preview .cards { display:flex; gap:8px; overflow-x:auto; width:100%; padding-bottom:6px; }
+    .catalog-preview .catalog-card { flex: 0 0 120px; width:120px; height:90px; }
+    .catalog-preview .open-catalog { width:100%; }
+
+    /* Catalog grid: flexible single-column on small screens */
+    .full-catalog { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; padding:0 8px; }
+
+    .catalog-item .thumb { height:140px; }
+
+    /* Product page stacks vertically */
+    .product-wrap { flex-direction:column; gap:12px; }
+    .product-left, .product-main, .product-right { width:100%; }
+    .product-main { height:260px; border-radius:10px; }
+    .thumbs .mini { width:64px; height:52px; }
+
+    /* Option buttons and order button sizing for touch */
+    .option-btn { min-width:64px; padding:8px 10px; font-size:14px; }
+    .order-btn { width:100%; height:48px; }
+
+    /* Modals and lightbox adapt to narrow screens */
+    .modal { width:92%; max-width:420px; padding:16px; }
+    .img-lightbox img { max-width:98vw; max-height:78vh; }
+
+    /* Footer link spacing */
+    .site-footer { bottom:8px; }
+  }
+
+  /* VERY SMALL PHONES: extra adjustments to prevent overflow and cut text */
+  @media (max-width:420px){
+    /* ensure hero content wraps and doesn't force horizontal scroll */
+    #home .inner { padding: 0 12px; box-sizing: border-box; }
+    #home h1.hero-title { font-size:28px; line-height:1.1; word-break:break-word; white-space:normal; }
+    #typewriter { white-space:normal; border-right:none; display:block; font-size:14px; }
+
+    /* make search and controls stack nicely */
+    .title-row { flex-direction:column; align-items:stretch; gap:8px; }
+    input.search-input { width:100% !important; max-width:100%; }
+    .to-gen { width:100%; }
+
+    /* shrink preview cards and ensure no overflow */
+    .catalog-preview .cards { gap:8px; }
+    .catalog-preview .catalog-card { width:100px; height:76px; font-size:12px; }
+
+    /* catalog grid: smaller cards */
+    .full-catalog { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:10px; padding:0 8px; }
+
+    /* product page: reduce image height and thumb size */
+    .product-main { height:200px; }
+    .thumbs .mini { width:56px; height:44px; }
+    .option-btn { padding:6px 8px; min-width:56px; font-size:13px; }
+    .order-btn { width:100%; padding:12px; }
+
+    /* generation form: ensure left column doesn't force width */
+    .gen-left { width:100% !important; max-width:100%; }
+    textarea#prompt { width:100% !important; }
+    input#email { width:100% !important; }
+
+    /* ensure modals fit */
+    .modal { width:94%; padding:12px; }
+    .gen-cover .panel { width:94%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER: фиксированная верхняя панель -->
+<header class="topbar" role="banner" aria-label="Верхняя панель">
+  <div class="left" role="navigation" aria-label="Левая навигация">
+    <button id="navCatalog" aria-label="Каталог" onclick="goPage('order')">Каталог</button>
+    <button id="navGen" aria-label="Генерация" onclick="showGenCover()">Генерация</button>
+    <button id="navAuthtor" aria-label="О нас" onclick="goPage('AR')">О нас</button>
+  </div>
+  <div class="brand" id="brand" role="link" aria-label="Best Print — на главную" onclick="goPage('home')">Best Print</div>
+</header>
+
+<!-- MAIN APP: страницы -->
+<main id="app">
+  <!-- HOME -->
+  <section id="home" class="page active" aria-labelledby="homeTitle">
+    <div class="hero" role="region" aria-label="Главный экран">
+      <div class="inner">
+        <h1 id="homeTitle" class="hero-title" onclick="goPage('home')" aria-label="Best Print">Best Print</h1>
+        <p class="hero-sub">Генерация и печать 3d моделей на заказ</p>
+
+        <div id="typewriter" aria-hidden="false"></div>
+
+        <div>
+          <button id="heroOrder" aria-label="Заказать" onclick="goPage('order')">Заказать ➜</button>
+        </div>
+
+        <div class="catalog-preview fade-up" id="catalogPreview" aria-label="Превью каталога" style="margin-top:28px;">
+          <div class="title">Ознакомьтесь с нашим каталогом</div>
+          <div class="cards">
+            <div id="previewCard0" class="catalog-card" role="img" aria-label="Модель 1">Модель 1</div>
+            <div id="previewCard1" class="catalog-card" role="img" aria-label="Модель 2">Модель 2</div>
+            <div id="previewCard2" class="catalog-card" role="img" aria-label="Модель 3">Модель 3</div>
+          </div>
+          <div>
+            <button class="open-catalog" aria-label="Открыть каталог" onclick="goPage('order')">Открыть каталог</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- AR: команда / о нас -->
+  <section id="AR" class="page" aria-labelledby="arTitle">
+    <h2 id="arTitle">Команда проекта</h2>
+
+    <div class="team-wrap">
+      <div class="member" role="group" aria-label="Артём">
+        <div class="meta">
+          <div class="name">Артём</div>
+          <div class="role">3D печать, настройка моделей, обработка</div>
+        </div>
+        
+      </div>
+
+      <div class="member" role="group" aria-label="Тимур">
+        <div class="meta">
+          <div class="name">Тимур</div>
+          <div class="role">Генерация моделей, работа с изображениями, работа с заказами</div>
+        </div>
+        <div class="links">
+          <a href="https://t.me/Name2" target="_blank" rel="noopener">Telegram</a>
+        </div>
+      </div>
+
+      <div class="member" role="group" aria-label="Bester">
+        <div class="meta">
+          <div class="name">Bester</div>
+          <div class="role">Код, разработка, техническая работа</div>
+        </div>
+        <div class="links">
+          <a href="https://t.me/Bester_play" target="_blank" rel="noopener">Telegram</a>
+          <a href="https://github.com/BesterYt" target="_blank" rel="noopener">GitHub</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ORDER -->
+  <section id="order" class="page" aria-labelledby="orderTitle">
+    <h2 id="orderTitle">Каталог моделей</h2>
+
+    <div class="title-row" style="margin-top:12px;">
+      <input id="searchInput" class="search-input" type="search" placeholder="Поиск готовых моделей" oninput="searchModels(this.value)" aria-label="Поиск готовых моделей" style="width:520px; height:52px;" />
+  
+    </div>
+
+    <div id="catalogGrid" class="full-catalog" aria-live="polite" style="margin-top:18px;">
+      <!-- renderCatalog(list) заполнит -->
+    </div>
+  </section>
+
+  <!-- PRODUCT -->
+  <section id="product" class="page" aria-labelledby="productTitle">
+    <h2 id="productTitle">Карточка товара</h2>
+
+    <div class="product-wrap">
+      <div class="product-left">
+        <div id="productMainImg" class="product-main" role="img" aria-label="Основное изображение">Основное изображение</div>
+        <div id="productThumbs" class="thumbs" aria-label="Миниатюры"></div>
+      </div>
+
+      <div class="product-right">
+        <h3 id="productName">Название модели</h3>
+        <div id="productPrice" style="font-weight:700;margin-top:6px;">Цена печати: X ₽</div>
+
+        <div style="margin-top:12px;">Выбор цвета пластика:</div>
+        <div id="colorOptions" style="display:flex; gap:8px; margin-top:8px;">
+          <button class="option-btn active" onclick="select(this)" data-value="Красный" aria-pressed="true">Красный</button>
+          <button class="option-btn" onclick="select(this)" data-value="Синий">Синий</button>
+          <button class="option-btn" onclick="select(this)" data-value="Зелёный">Зелёный</button>
+        </div>
+
+        <div style="margin-top:12px;">Выбор размера:</div>
+        <div id="sizeOptions" style="display:flex; gap:8px; margin-top:8px;">
+          <button class="option-btn active" onclick="select(this)" data-value="4см">4см</button>
+          <button class="option-btn" onclick="select(this)" data-value="8см">8см</button>
+          <button class="option-btn" onclick="select(this)" data-value="10см">10см</button>
+          <button class="option-btn" onclick="select(this)" data-value="15см">15см</button>
+        </div>
+
+        <div id="productDescription" style="margin-top:12px; color:#444;">Описание товара...</div>
+
+        <button class="order-btn" aria-label="Заказать товар" onclick="placeOrder()">Заказать</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- GEN -->
+  <section id="gen" class="page" aria-labelledby="genTitle">
+    <h2 id="genTitle">Генерация</h2>
+
+    <div class="gen-wrap">
+      <div class="gen-left">
+        <label for="prompt">Промпт</label><br/>
+        <textarea id="prompt" placeholder="Опишите модель..." aria-label="Промпт" style="width:720px; height:240px;"></textarea>
+
+        <div style="margin-top:12px; display:flex; gap:12px; align-items:flex-start;">
+          <div>
+            <label for="fileAttach">Прикрепить картинку</label><br/>
+            <input id="fileAttach" type="file" accept="image/*" onchange="previewFile(event)" aria-label="Прикрепить картинку" />
+          </div>
+          <div id="filePreview" class="file-preview" aria-hidden="true">Превью</div>
+        </div>
+      </div>
+
+      <div class="gen-right">
+        <label for="email">Ваша почта</label><br/>
+        <input id="email" type="email" placeholder="Ваша почта" aria-label="Ваша почта" style="width:420px; height:44px;" />
+
+        <div style="margin-top:12px;">Выбор размера:</div>
+        <div id="genSizeOptions" style="display:flex; gap:8px; margin-top:8px;">
+          <button class="option-btn active" onclick="select(this)" data-value="4см">4см</button>
+          <button class="option-btn" onclick="select(this)" data-value="8см">8см</button>
+          <button class="option-btn" onclick="select(this)" data-value="10см">10см</button>
+          <button class="option-btn" onclick="select(this)" data-value="15см">15см</button>
+        </div>
+
+        <div id="genHint" style="color:#c00; margin-top:8px; display:none;"></div>
+
+        <button class="send-btn" onclick="submitGenerate()" style="margin-top:12px;">Отправить</button>
+        <div style="margin-top:12px; font-size:13px; color:#666;">TODO: интегрировать API генерации и отправки почты.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL -->
+<div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal" role="document">
+    <button class="close" aria-label="Закрыть" onclick="closeModal()">✕</button>
+    <div style="font-size:48px; margin-bottom:12px;">✔</div>
+    <div style="font-weight:700; font-size:18px;">Заказ успешно размещён</div>
+    <div style="margin-top:8px; color:#666;">Мы свяжемся с вами по готовности печати.</div>
+  </div>
+</div>
+<!-- Generation cover (global, shows over current page) -->
+<div id="genCover" class="gen-cover" role="dialog" aria-hidden="true">
+  <div class="panel">
+    <h3>В разработке</h3>
+    <p>Страница генерации сейчас находится в разработке и скоро появится.</p>
+    <button onclick="hideGenCover()" aria-label="Закрыть">Понятно</button>
+  </div>
+</div>
+
+<!-- ORDER CONFIRMATION MODAL: asks for telegram username, shows order id and bot name -->
+<div id="orderModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal" role="document" style="max-width:520px;">
+    <button class="close" aria-label="Закрыть" onclick="closeOrderModal()">✕</button>
+    <h3 id="orderModalTitle">Подтвердите заказ</h3>
+    <div id="orderModalBody" style="margin-top:8px; color:#222; text-align:left;"></div>
+    <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+      <button onclick="submitOrderToServer()" id="orderConfirmBtn" style="background:var(--accent);">Я сохранил код и отправить</button>
+      <button onclick="closeOrderModal()" style="background:#eee;">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE LIGHTBOX: full-screen image viewer (opened when clicking product main image) -->
+<div id="imgLightbox" class="img-lightbox" role="dialog" aria-hidden="true" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="Просмотр изображения" onclick="event.stopPropagation();" />
+  <button class="close" aria-label="Закрыть" onclick="closeLightbox()">✕</button>
+</div>
+
+<!-- SITE FOOTER LINK: visible on every page -->
+<div class="site-footer" aria-hidden="false">
+  <a href="licence.html" id="licenseLink">Пользовательское соглашение</a>
+</div>
+
+<script>
+/* =========================================================================
+   JAVASCRIPT: все требуемые функции и логика (имена нельзя менять)
+   Проверки и комментарии там, где менять данные продуктов/изображения/цен.
+   ========================================================================= */
+
+/* =========================
+   PRODUCTS: Массив из 10 моделей
+   Комментарии в этом блоке:
+   // name = название модели
+   // price = цена печати (строка, например "500 ₽")
+   // description = описание
+   // images = массив путей/placeholder (see constants below)
+   Изменяйте эти поля по необходимости.
+   ========================= */
+// Placeholder URL constants — replace the 'url_here' value with a real image URL when ready.
+// Note: identifiers use underscores (placeholder_1a) because hyphens are invalid in JS identifiers.
+const placeholder_1a = 'https://media.printables.com/media/prints/1181036/images/8883329_ed92587f-7bdb-4584-8233-bd0fdd19ab49_0d9875d4-1d97-4881-b12a-bc90166c6428/thumbs/inside/1280x960/jpg/photo_5850211852401886192_y.webp';
+const placeholder_1b = 'https://media.printables.com/media/prints/1181036/images/8883325_4171b6b0-9d2a-4e67-8123-9037827e8a2e_e2910d92-b739-4cc3-bf1d-a3c7aa70f3b4/thumbs/inside/1280x960/jpg/photo_5850211852401886202_y.webp';
+const placeholder_2a = 'https://media.printables.com/media/prints/499926/images/4065564_4fc7cfbe-ba74-498e-b4b9-0bcfb5f732b6/thumbs/inside/1280x960/png/lpcats1.webp';
+const placeholder_2b = 'https://media.printables.com/media/prints/499926/images/4066858_cef3a4e6-a202-47d8-83e1-4fa32c9f2ad9/thumbs/inside/1280x960/jpg/20230606_193043.webp';
+const placeholder_3a = 'https://i.ibb.co/DHJrNq06/image.png';
+const placeholder_3b = 'https://via.placeholder.com/160x120?text=Model+3+thumb';
+const placeholder_4a = 'https://media.printables.com/media/prints/447d73aa-e8a4-4a0c-b0a9-844d9adf7815/images/10383187_78fe6693-65e7-438c-93e8-5d43f1b3bfd7_622bb71b-4ccd-494c-8de7-bf4aa8b7faa3/thumbs/inside/1280x960/webp/fingercatapultv2.webp';
+const placeholder_4b = 'https://media.printables.com/media/prints/57dde178-ad2e-476b-99f0-3712eff7a39e/images/10215974_ebefcd71-02b4-4094-85d8-37088cdb85fb_16de2e45-0f54-4078-8624-be03248b37f1/thumbs/inside/1280x960/jpg/img_5082.webp';
+const placeholder_5a = 'https://media.printables.com/media/prints/178035/images/1667589_5eb7891e-0a97-41fd-a9bb-7cc6b828a244/thumbs/inside/1280x960/jpg/79ce327ccf19c444d662164138038e4b_display_large_17.webp';
+const placeholder_5b = 'https://media.printables.com/media/prints/178035/images/1667590_5d8adbd6-3759-48b0-b1c2-e2aec19ba985/thumbs/inside/1280x960/jpg/7e7fe39c69e6ab74ec0fe0387b2cc5ac_display_large_17.webp';
+const placeholder_6a = 'https://media.printables.com/media/prints/692677/images/5449039_48272317-2020-4424-b43a-03ab9c4b1f1b_d216a460-dc75-4800-96fb-45dae137f843/thumbs/inside/1280x960/jpg/20231225_092434.webp';
+const placeholder_6b = 'https://media.printables.com/media/prints/692677/images/5449015_f744b119-d6d2-4f44-8fdb-367702e12271_8bb6dcc1-7863-4c0d-a103-28934a1297e3/thumbs/inside/1280x960/jpg/20231225_083224.webp';
+const placeholder_7a = 'https://via.placeholder.com/520x380?text=Model+7';
+const placeholder_7b = 'https://via.placeholder.com/160x120?text=Model+7+thumb';
+const placeholder_8a = 'https://via.placeholder.com/520x380?text=Model+8';
+const placeholder_8b = 'https://via.placeholder.com/160x120?text=Model+8+thumb';
+const placeholder_9a = 'https://via.placeholder.com/520x380?text=Model+9';
+const placeholder_9b = 'https://via.placeholder.com/160x120?text=Model+9+thumb';
+const placeholder_10a = 'https://via.placeholder.com/520x380?text=Model+10';
+const placeholder_10b = 'https://via.placeholder.com/160x120?text=Model+10+thumb';
+// Main catalog thumbnail URLs list — paste your main-catalog/thumb URLs here (one per product).
+// If a slot is empty string '', the code will fall back to product.images[0].
+// Order: index 0 -> product 1, index 1 -> product 2, ... index 9 -> product 10
+const mainCatalogUrls = [
+  placeholder_1a, // product 1 catalog thumbnail (you can replace this with a full URL)
+  placeholder_2a, // product 2
+  placeholder_3a, // product 3
+  placeholder_4a, // product 4
+  placeholder_5b, // product 5
+  placeholder_6b, // product 6
+  placeholder_7b, // product 7
+  placeholder_8b, // product 8
+  placeholder_9b, // product 9
+  placeholder_10b // product 10
+];
+// Default sizes used when a product does not define its own `sizes` array.
+// Edit these or add a `sizes` property to individual products below.
+const defaultSizes = ["4см","8см","10см","15см"];
+const products = [
+  // name = "Модель 1", prices = { sizeLabel: numericPrice }, description = "...", images = [...]
+  // Example: this product has per-size prices (numbers are in ₽)
+  { name: "Медведь на ключи", description: "Медведи на ключи или в качестве фигурки.", images: [placeholder_1a, placeholder_1b], sizes: ["4см","6см","8см","10см","12см"], prices: { "4см": 150, "6см": 180, "8см": 220, "10см": 270, "12см": 320 } },
+  // Example: this product supports only a few sizes with prices
+  { name: "Коты", description: "Милые low-poly котики. Вес: 19 грамм", images: [placeholder_2a, placeholder_2b], sizes: ["5см", "10см","12см"], prices: { "5см": 190, "10см": 300, "12см": 360 } },
+  { name: "Death monarch", price: "X ₽", description: "Фигурка Death monarch с черепом.", images: [placeholder_3a, placeholder_3b], prices: { "5см": 190, "10см": 300, "12см": 360 } },
+  { name: "Катапульта антистресс", price: "100₽", description: "Небольшая катапульта. Может стрелять пульками 9мм (как в игрушечных пистолетах)", images: [placeholder_4a, placeholder_4b] },
+  { name: "Осьминог", price: "130₽", description: "Игрушка Осьминог", images: [placeholder_5a, placeholder_5b], sizes: ["5см"]},
+  { name: "Модель 6", price: "X ₽", description: "Описание модели 6", images: [placeholder_6a, placeholder_6b] },
+  { name: "Модель 7", price: "X ₽", description: "Описание модели 7", images: [placeholder_7a, placeholder_7b] },
+  { name: "Модель 8", price: "X ₽", description: "Описание модели 8", images: [placeholder_8a, placeholder_8b] },
+  { name: "Модель 9", price: "X ₽", description: "Описание модели 9", images: [placeholder_9a, placeholder_9b] },
+  { name: "Модель 10", price: "X ₽", description: "Описание модели 10", images: [placeholder_10a, placeholder_10b] }
+];
+
+/* =========================
+   renderCatalog(list) — рендерит карточки в #catalogGrid
+   Не переименовывать.
+   ========================= */
+function renderCatalog(list){
+  const grid = document.getElementById('catalogGrid');
+  grid.innerHTML = '';
+  list.forEach((p, idx) => {
+    const item = document.createElement('div');
+    item.className = 'catalog-item';
+    item.tabIndex = 0;
+    item.setAttribute('role','button');
+    item.setAttribute('aria-label', `Открыть ${p.name}`);
+
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    // show image background if images[0] present (treat any non-empty string as path)
+    // prefer explicit main-catalog URL list if provided, otherwise use product images[0]
+    // NOTE: when `list` is a filtered subset, `idx` is relative to that subset. We must
+    // resolve the product's original index in the master `products` array to pick the
+    // matching entry in `mainCatalogUrls`.
+    const origIdx = (Array.isArray(window.products) ? products.findIndex(pr => pr === p) : -1);
+    const imgVal = (typeof mainCatalogUrls !== 'undefined' && origIdx >= 0 && mainCatalogUrls[origIdx])
+      ? mainCatalogUrls[origIdx]
+      : ((p.images && p.images[0]) || '');
+    if(imgVal){
+      // wrap in quotes to support URLs with query strings
+      thumb.style.backgroundImage = `url("${imgVal}")`;
+      thumb.style.backgroundSize = 'cover';
+      thumb.style.backgroundPosition = 'center';
+    } else {
+      // fallback: show name text if no image value
+      thumb.textContent = p.name;
+    }
+    thumb.setAttribute('aria-label', p.name);
+    item.appendChild(thumb);
+
+    const title = document.createElement('h3');
+    title.textContent = p.name;
+    item.appendChild(title);
+
+  const price = document.createElement('p');
+  // display minimum price or legacy price string
+  const min = getMinPrice(p);
+  price.textContent = 'Цена печати: ' + (min || (p.price || 'X ₽'));
+    item.appendChild(price);
+
+    item.onclick = () => openProduct(p);
+    item.onkeypress = (e) => { if(e.key === 'Enter') openProduct(p); };
+
+    grid.appendChild(item);
+  });
+}
+
+/* =========================
+   Pricing helpers
+   - getPriceForProduct(product, size) => { value:number, text:string } or null
+   - formatPrice(n) => '123 ₽'
+   - getMinPrice(product) => formatted text or null
+   ========================= */
+function formatPrice(n){
+  if(typeof n === 'number' && !isNaN(n)) return String(n) + ' ₽';
+  return String(n);
+}
+
+function getPriceForProduct(product, size){
+  if(!product) return null;
+  // prefer explicit prices mapping
+  if(product.prices && typeof product.prices === 'object'){
+    if(size && typeof product.prices[size] !== 'undefined'){
+      const v = product.prices[size];
+      return { value: Number(v), text: formatPrice(Number(v)) };
+    }
+  }
+  // legacy: product.price string with comma-separated values — try to map by index using sizes
+  if(product.price && typeof product.price === 'string' && product.price.indexOf(',') !== -1){
+    const parts = product.price.split(',').map(s=>s.trim());
+    const sizes = (product.sizes && product.sizes.length) ? product.sizes : (window.defaultSizes || []);
+    const idx = sizes.indexOf(size);
+    if(idx >=0 && parts[idx]) return { value: undefined, text: parts[idx] };
+  }
+  return null;
+}
+
+function getMinPrice(product){
+  if(!product) return null;
+  if(product.prices && typeof product.prices === 'object'){
+    const vals = Object.values(product.prices).map(v=>Number(v)).filter(v=>!isNaN(v));
+    if(vals.length>0) return 'от ' + formatPrice(Math.min.apply(null, vals));
+  }
+  // fallback: if legacy price string, return it directly
+  if(product.price && typeof product.price === 'string') return product.price;
+  return null;
+}
+
+/* =========================
+   searchModels(q) — фильтрация (oninput="searchModels(this.value)")
+   Не переименовывать.
+   ========================= */
+function searchModels(q){
+  const qnorm = (q || '').trim().toLowerCase();
+  if(!qnorm){
+    renderCatalog(products.slice());
+    return;
+  }
+  const filtered = products.filter(p => (p.name && p.name.toLowerCase().includes(qnorm)) || (p.description && p.description.toLowerCase().includes(qnorm)));
+  renderCatalog(filtered);
+}
+
+/* =========================
+   openProduct(p) — открывает страницу product и наполняет поля.
+   Не переименовывать.
+   ========================= */
+let currentProduct = null;
+let currentImageIndex = 0; // index of the image currently shown in the product main area
+let _lbKeyHandler = null;
+function openProduct(p){
+  currentProduct = p;
+  currentImageIndex = 0;
+  document.getElementById('productName').textContent = p.name;
+  // set initial product price display. If product has per-size prices, we'll update when sizes render/select.
+  const priceEl = document.getElementById('productPrice');
+  const initialPrice = getMinPrice(p) || (p.price || 'X ₽');
+  priceEl.textContent = 'Цена печати: ' + initialPrice;
+  // data attributes for currently selected price (numeric and text)
+  priceEl.dataset.priceText = (typeof initialPrice === 'string') ? initialPrice : formatPrice(initialPrice);
+  priceEl.dataset.priceValue = (typeof initialPrice === 'number') ? String(initialPrice) : '';
+  document.getElementById('productDescription').textContent = p.description || '';
+
+  const main = document.getElementById('productMainImg');
+  // Render main image as background if value present, otherwise show placeholder text
+  const mainVal = (p.images && p.images[0]) || '';
+  main.style.background = 'linear-gradient(135deg,#fafafa,#e9e9e9)';
+  main.style.backgroundImage = '';
+  main.textContent = '';
+  if(mainVal){
+    main.style.backgroundImage = `url("${mainVal}")`;
+    main.style.backgroundSize = 'cover';
+    main.style.backgroundPosition = 'center';
+    main.style.cursor = 'pointer';
+    // clicking the main image opens the full-screen lightbox viewer
+    main.onclick = () => { const url = (currentProduct && currentProduct.images && currentProduct.images[currentImageIndex]) || ''; if(url) openLightbox(url); };
+    main.onkeypress = (e) => { if(e.key === 'Enter'){ const url = (currentProduct && currentProduct.images && currentProduct.images[currentImageIndex]) || ''; if(url) openLightbox(url); } };
+  } else {
+    main.textContent = 'Изображение';
+    main.style.cursor = 'default';
+    main.onclick = null;
+  }
+
+  const thumbs = document.getElementById('productThumbs');
+  thumbs.innerHTML = '';
+  (p.images || []).forEach((img, i) => {
+    const m = document.createElement('div');
+    m.className = 'mini' + (i===0 ? ' active' : '');
+    m.tabIndex = 0;
+    m.onclick = () => changeImg(i);
+    m.onkeypress = (e) => { if(e.key === 'Enter') changeImg(i); };
+    if(img){
+      m.style.backgroundImage = `url("${img}")`;
+      m.style.backgroundSize = 'cover';
+      m.style.backgroundPosition = 'center';
+    } else {
+      m.textContent = 'placeholder';
+    }
+    thumbs.appendChild(m);
+  });
+
+  // defaults
+  // color options: keep existing static buttons and reset active state
+  document.querySelectorAll('#colorOptions .option-btn').forEach((el, idx) => {
+    el.classList.toggle('active', idx===0);
+    el.setAttribute('aria-pressed', idx===0 ? 'true' : 'false');
+  });
+
+  // size options: render buttons from product.sizes if present, otherwise use defaultSizes
+  const sizeWrap = document.getElementById('sizeOptions');
+  if(sizeWrap){
+    const sizes = (p.sizes && Array.isArray(p.sizes) && p.sizes.length>0) ? p.sizes : (window.defaultSizes || []);
+    sizeWrap.innerHTML = '';
+    sizes.forEach((sz, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn' + (i===0 ? ' active' : '');
+      btn.setAttribute('data-value', sz);
+      // attach computed price for this size (if available)
+      const priceInfo = getPriceForProduct(p, sz);
+      if(priceInfo){
+        btn.dataset.priceText = priceInfo.text;
+        if(typeof priceInfo.value !== 'undefined') btn.dataset.priceValue = String(priceInfo.value);
+      }
+      btn.setAttribute('aria-pressed', i===0 ? 'true' : 'false');
+      btn.textContent = sz;
+      btn.onclick = () => select(btn);
+      sizeWrap.appendChild(btn);
+      // if this is the default (first) size, set product price accordingly
+      if(i===0){
+        if(priceInfo){
+          priceEl.textContent = 'Цена печати: ' + priceInfo.text;
+          priceEl.dataset.priceText = priceInfo.text;
+          priceEl.dataset.priceValue = (typeof priceInfo.value !== 'undefined') ? String(priceInfo.value) : '';
+        }
+      }
+    });
+  }
+
+  goPage('product');
+}
+
+/* =========================
+   changeImg(index) — меняет основное изображение (не менять имя)
+   ========================= */
+function changeImg(index){
+  if(!currentProduct) return;
+  currentImageIndex = index;
+  const main = document.getElementById('productMainImg');
+  const val = currentProduct.images[index] || '';
+  main.style.backgroundImage = '';
+  main.textContent = '';
+  if(val){
+    main.style.backgroundImage = `url("${val}")`;
+    main.style.backgroundSize = 'cover';
+    main.style.backgroundPosition = 'center';
+    main.style.cursor = 'pointer';
+  } else {
+    main.textContent = 'Изображение';
+    main.style.cursor = 'default';
+  }
+  document.querySelectorAll('#productThumbs .mini').forEach((el,i)=> el.classList.toggle('active', i===index));
+}
+
+/* =========================
+   select(btn) — выбор опций (цвет/размер) (не менять имя)
+   ========================= */
+function select(btn){
+  const parent = btn.parentElement;
+  parent.querySelectorAll('.option-btn').forEach(el=>{ el.classList.remove('active'); el.setAttribute('aria-pressed','false'); });
+  btn.classList.add('active');
+  btn.setAttribute('aria-pressed','true');
+  // If this is a size selection on the product page, update displayed price
+  try{
+    if(parent && parent.id === 'sizeOptions'){
+      const size = btn.dataset.value;
+      const priceEl = document.getElementById('productPrice');
+      // prefer dataset price on button (set during openProduct), otherwise compute
+      let text = btn.dataset.priceText || '';
+      let val = btn.dataset.priceValue || '';
+      if(!text && window.currentProduct){
+        const info = getPriceForProduct(window.currentProduct, size);
+        if(info){ text = info.text; val = (typeof info.value !== 'undefined') ? String(info.value) : ''; }
+      }
+      if(text){
+        priceEl.textContent = 'Цена печати: ' + text;
+        priceEl.dataset.priceText = text;
+        priceEl.dataset.priceValue = val || '';
+      }
+    }
+  }catch(e){ console.error('price update error', e); }
+}
+
+/* =========================
+   goPage(id) — переключение страниц (home, order, product, gen) (не менять имя)
+   ========================= */
+function goPage(id){
+  document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === id));
+  if(id === 'order') renderCatalog(products.slice());
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* =========================
+   openModal / closeModal (не менять имена)
+   ========================= */
+function openModal(){ document.getElementById('modalBackdrop').classList.add('show'); document.getElementById('modalBackdrop').setAttribute('aria-hidden','false'); }
+function closeModal(){ document.getElementById('modalBackdrop').classList.remove('show'); document.getElementById('modalBackdrop').setAttribute('aria-hidden','true'); }
+
+/* =========================
+   IMAGE LIGHTBOX API
+   openLightbox(url) — show full-screen viewer
+   closeLightbox() — hide it
+   ========================= */
+function openLightbox(url){
+  if(!url) return;
+  const lb = document.getElementById('imgLightbox');
+  const img = document.getElementById('lightboxImg');
+  img.src = url;
+  lb.classList.add('show');
+  lb.setAttribute('aria-hidden','false');
+  // add ESC handler to close lightbox
+  _lbKeyHandler = (e) => { if(e.key === 'Escape') closeLightbox(); };
+  document.addEventListener('keydown', _lbKeyHandler);
+}
+
+function closeLightbox(){
+  const lb = document.getElementById('imgLightbox');
+  if(!lb) return;
+  lb.classList.remove('show');
+  lb.setAttribute('aria-hidden','true');
+  const img = document.getElementById('lightboxImg');
+  if(img) img.src = '';
+  if(_lbKeyHandler) { document.removeEventListener('keydown', _lbKeyHandler); _lbKeyHandler = null; }
+}
+
+// Order modal helpers — called when user confirms they've saved the order code
+function closeOrderModal(){
+  const modal = document.getElementById('orderModal');
+  if(!modal) return;
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden','true');
+}
+
+async function submitOrderToServer(){
+  if(!lastOrder) { alert('Нет заказа для отправки'); return; }
+  const endpoint = document.getElementById('orderConfirmBtn').dataset.endpoint || 'https://bestprintdaf5.ivantimockin19.workers.dev/orders';
+  // confirm user saved code
+  const ok = window.confirm('Вы сохранили код заказа? После отправки мы уведомим менеджера.');
+  if(!ok) return;
+  // show UI feedback and enforce a 15s timeout
+  const confirmBtn = document.getElementById('orderConfirmBtn');
+  const origText = confirmBtn ? confirmBtn.textContent : '';
+  if(confirmBtn){ confirmBtn.disabled = true; confirmBtn.textContent = 'Отправка...'; }
+
+  // status paragraph inside modal
+  let statusEl = document.getElementById('orderSendStatus');
+  if(!statusEl){
+    statusEl = document.createElement('p');
+    statusEl.id = 'orderSendStatus';
+    statusEl.style.marginTop = '8px';
+    document.getElementById('orderModalBody').appendChild(statusEl);
+  }
+  statusEl.textContent = 'Идёт отправка заказа, подождите...';
+
+  const controller = new AbortController();
+  const timeoutMs = 15000; // 15 seconds
+  const timeoutId = setTimeout(()=> controller.abort(), timeoutMs);
+
+  try{
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lastOrder),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    const data = await res.json().catch(()=>({ ok: res.ok }));
+    if(res.ok){
+      statusEl.textContent = 'Заказ успешно отправлен.';
+      // small delay so user sees the message
+      setTimeout(()=>{
+        closeOrderModal();
+        openModal();
+      }, 600);
+      console.log('Order sent', data);
+    } else {
+      statusEl.textContent = 'Ошибка отправки заказа на сервер. Попробуйте позже.';
+      alert('Ошибка отправки заказа на сервер. Попробуйте позже.');
+    }
+  }catch(err){
+    clearTimeout(timeoutId);
+    console.error('send order err', err);
+    if(err && err.name === 'AbortError'){
+      statusEl.textContent = 'Время ожидания соединения истекло (15s). Попробуйте ещё раз.';
+      alert('Время ожидания соединения истекло (15s). Попробуйте ещё раз.');
+    } else {
+      statusEl.textContent = 'Не удалось отправить заказ. Проверьте соединение.';
+      alert('Не удалось отправить заказ. Проверьте соединение.');
+    }
+  }finally{
+    if(confirmBtn){ confirmBtn.disabled = false; confirmBtn.textContent = origText; }
+  }
+}
+
+/* =========================
+   placeOrder() — сохраняет опции и открывает модалку
+   ========================= */
+let lastOrder = null;
+function placeOrder(){
+  if(!currentProduct){ alert('Нет выбранного продукта'); return; }
+  const color = document.querySelector('#colorOptions .option-btn.active')?.dataset?.value || null;
+  const size = document.querySelector('#sizeOptions .option-btn.active')?.dataset?.value || null;
+  // build order object
+  const orderId = 'ORD-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,8).toUpperCase();
+  // determine selected price (from product price element data attributes if available)
+  const priceEl = document.getElementById('productPrice');
+  const selectedPriceText = (priceEl && priceEl.dataset && priceEl.dataset.priceText) ? priceEl.dataset.priceText : (currentProduct.price || 'X ₽');
+  const selectedPriceValue = (priceEl && priceEl.dataset && priceEl.dataset.priceValue) ? Number(priceEl.dataset.priceValue) : undefined;
+  lastOrder = { id: orderId, product: currentProduct.name, price: selectedPriceText, priceValue: selectedPriceValue, color, size, date: new Date().toISOString() };
+
+  // ask for Telegram username (client-side)
+  let tg = window.prompt('Укажите ваш Telegram username (например @username).\nЕсли у вас нет username, укажите телефон или оставьте пустым:','@');
+  if(tg === null){ // user cancelled
+    return;
+  }
+  tg = (tg || '').trim();
+  lastOrder.username = tg;
+
+  // prepare order modal with code and bot name
+  const body = document.getElementById('orderModalBody');
+  body.innerHTML = `
+    <p><strong>Код заказа:</strong> ${lastOrder.id}</p>
+    <p><strong>Модель:</strong> ${lastOrder.product}</p>
+    <p><strong>Размер:</strong> ${lastOrder.size || '-'}; <strong>Цвет:</strong> ${lastOrder.color || '-'}</p>
+    <p>Менеджер: <code>@Best_print_3D</code></p>
+    <p style="margin-top:8px; color:#666;">Сохраните код заказа — после закрытия окна будет предложено подтвердить, что вы сохранили код, и заказ будет отправлен на сервер.</p>
+  `;
+
+  // store server endpoint in button dataset
+  document.getElementById('orderConfirmBtn').dataset.endpoint = 'https://bestprintdaf5.ivantimockin19.workers.dev/orders';
+
+  // show the modal
+  document.getElementById('orderModal').classList.add('show');
+  document.getElementById('orderModal').setAttribute('aria-hidden','false');
+}
+
+/* =========================
+   Генерация: previewFile + submitGenerate
+   ========================= */
+function previewFile(e){
+  const file = e.target.files && e.target.files[0];
+  const preview = document.getElementById('filePreview');
+  if(!file){ preview.style.backgroundImage=''; preview.textContent='Превью'; preview.setAttribute('aria-hidden','true'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){ preview.style.backgroundImage = `url(${ev.target.result})`; preview.style.backgroundSize='cover'; preview.style.backgroundPosition='center'; preview.textContent=''; preview.setAttribute('aria-hidden','false'); };
+  reader.readAsDataURL(file);
+}
+
+function submitGenerate(){
+  const prompt = (document.getElementById('prompt')||{value:''}).value.trim();
+  const email = (document.getElementById('email')||{value:''}).value.trim();
+  const hint = document.getElementById('genHint'); hint.style.display='none'; hint.textContent='';
+  if(!prompt){ hint.style.display='block'; hint.textContent='Поле промпта не может быть пустым.'; return; }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+  if(!email || !emailRegex.test(email)){ hint.style.display='block'; hint.textContent='Укажите корректный email.'; return; }
+  const size = document.querySelector('#genSizeOptions .option-btn.active')?.dataset?.value || null;
+  const payload = { prompt, email, size };
+  // TODO: интегрировать API генерации и отправки почты
+  alert('Запрос принят (локально). TODO интегрировать API.\n' + JSON.stringify(payload, null, 2));
+}
+
+/* =========================
+   Generation cover controls
+   ========================= */
+function showGenCover(){
+  const el = document.getElementById('genCover');
+  if(!el) return;
+  el.classList.add('show');
+  el.setAttribute('aria-hidden','false');
+}
+function hideGenCover(){
+  const el = document.getElementById('genCover');
+  if(!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden','true');
+}
+
+/* =========================
+   TYPEWRITER + показать кнопку
+   ========================= */
+document.addEventListener('DOMContentLoaded', ()=>{
+
+  // рендер каталога при старте
+  renderCatalog(products.slice());
+  // set hero preview cards (use product images so you can change them centrally in products[])
+  ['previewCard0','previewCard1','previewCard2'].forEach((id,i)=>{
+    const el = document.getElementById(id);
+    const prod = products[i];
+    const img = prod && prod.images && (prod.images[0] || prod.images[1]) || '';
+    if(el && img){
+      el.style.backgroundImage = `url("${img}")`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.textContent = '';
+    }
+  });
+
+  // typewriter
+  const typeEl = document.getElementById('typewriter');
+  const phrase = 'Вы можете выбрать готовую 3d модель для печати или создать её с помощью ИИ по картинке.';
+  typeEl.style.opacity = 1;
+  let idx = 0;
+  function twStep(){
+    if(idx <= phrase.length){
+      typeEl.textContent = phrase.slice(0, idx);
+      idx++;
+      setTimeout(twStep, 30);
+    } else {
+      typeEl.style.borderRight = 'none';
+      setTimeout(()=> document.getElementById('heroOrder').classList.add('in-place'), 200);
+    }
+  }
+  setTimeout(twStep, 500);
+
+  // fade-up observer
+  const obs = new IntersectionObserver(entries => { entries.forEach(en => { if(en.isIntersecting) en.target.classList.add('visible'); }); }, { threshold: 0.12 });
+  document.querySelectorAll('.fade-up').forEach(el => obs.observe(el));
+
+  // ESC closes modal
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeModal(); });
+
+  // run checklist in console
+  runChecklist();
+});
+
+/* =========================
+   CHECKLIST
+   Скрипт проверяет 13 пунктов и выводит JSON с результатами в консоль.
+   Если все pass -> выводит "CHECKLIST PASSED".
+   Если хоть один fail -> выводит "CHECKLIST FAILED" и объект с true/false.
+   ========================= */
+function runChecklist(){
+  const results = {
+    header_fixed: false,
+    header_three_elements: false,
+    brand_on_right_click_home: false,
+    home_h1_white_and_subtitle: false,
+    catalog_preview_yellow_and_three_cards_and_open_catalog: false,
+    search_input_oninput_and_size: false,
+    renderCatalog_and_10_products: false,
+    card_hover_animation: false,
+    product_page_main_and_thumbs_changeImg: false,
+    gen_page_sizes_and_validation: false,
+    no_green_shades: false,
+    comments_product_fields_present: false,
+    names_functions_exist: false
+  };
+
+  try {
+    // 1) header fixed, background #ffffff, height 72px
+    const header = document.querySelector('header.topbar');
+    if(header){
+      const cs = window.getComputedStyle(header);
+      const isFixed = cs.position === 'fixed' || header.style.position === 'fixed';
+      const bg = cs.backgroundColor.replace(/\s+/g,'');
+      const heightPx = header.getBoundingClientRect().height;
+      results.header_fixed = isFixed && (bg === 'rgb(255,255,255)' || bg.includes('#ffffff')) && Math.round(heightPx) === 72;
+    }
+
+    // 2) header has exactly 3 interactive elements in one line: left has 2 buttons and brand at right
+    if(header){
+      const leftBtns = header.querySelectorAll('.left button');
+      const brand = header.querySelector('.brand');
+      results.header_three_elements = (leftBtns.length === 2) && !!brand;
+    }
+
+    // 3) brand is clickable -> goPage('home')
+    const brandEl = document.querySelector('.topbar .brand');
+    results.brand_on_right_click_home = !!brandEl && typeof brandEl.onclick === 'function';
+
+    // 4) home h1 white and subtitle exists
+    const h1 = document.querySelector('#home h1.hero-title');
+    const sub = document.querySelector('#home p.hero-sub');
+    if(h1 && sub){
+      const color = window.getComputedStyle(h1).color;
+      results.home_h1_white_and_subtitle = color === 'rgb(255, 255, 255)' || color === 'rgb(255,255,255)';
+    }
+
+    // 5) catalog-preview bg #ffd400 and exactly 3 cards and open-catalog exists
+    const cp = document.querySelector('.catalog-preview');
+    if(cp){
+      const bgc = window.getComputedStyle(cp).backgroundColor;
+      const cards = cp.querySelectorAll('.catalog-card');
+      const openBtn = cp.querySelector('.open-catalog');
+      results.catalog_preview_yellow_and_three_cards_and_open_catalog =
+        (bgc === 'rgb(255, 212, 0)' || bgc.includes('#ffd400')) && (cards.length === 3) && !!openBtn;
+    }
+
+    // 6) search input has oninput="searchModels(this.value)" and width/height 520x52
+    const s = document.getElementById('searchInput');
+    if(s){
+      const attr = s.getAttribute('oninput') || '';
+      const rect = s.getBoundingClientRect();
+      results.search_input_oninput_and_size = attr.includes('searchModels(this.value)') && Math.round(rect.width) === 520 && Math.round(rect.height) === 52;
+    }
+
+    // 7) renderCatalog exists and products length 10 and catalogGrid children 10 after render
+    const hasRender = typeof renderCatalog === 'function';
+    const hasProducts = Array.isArray(products) && products.length === 10;
+    if(hasRender){
+      renderCatalog(products.slice());
+      const grid = document.getElementById('catalogGrid');
+      results.renderCatalog_and_10_products = hasProducts && grid && grid.children.length === 10;
+    }
+
+    // 8) card hover animation: check catalog-item has transition property
+    const sample = document.querySelector('.catalog-item');
+    if(sample){
+      const cs = window.getComputedStyle(sample);
+      results.card_hover_animation = cs.transition && cs.transition !== 'all 0s ease 0s';
+    }
+
+    // 9) product page has main image and thumbs and changeImg exists
+    results.product_page_main_and_thumbs_changeImg = !!document.getElementById('productMainImg') && !!document.getElementById('productThumbs') && (typeof changeImg === 'function');
+
+    // 10) gen page sizes and validation presence
+    const ta = document.getElementById('prompt');
+    const fp = document.getElementById('filePreview');
+    const em = document.getElementById('email');
+    let taOk=false, fpOk=false, emOk=false;
+    if(ta){
+      const r = ta.getBoundingClientRect();
+      taOk = Math.round(r.width) === 720 && Math.round(r.height) === 240;
+    }
+    if(fp){
+      const r = fp.getBoundingClientRect();
+      fpOk = Math.round(r.width) === 240 && Math.round(r.height) === 240;
+    }
+    if(em){
+      const r = em.getBoundingClientRect();
+      emOk = Math.round(r.width) === 420 && Math.round(r.height) === 44;
+    }
+    results.gen_page_sizes_and_validation = taOk && fpOk && emOk && (typeof submitGenerate === 'function');
+
+    // 11) no green shades in CSS (simple check)
+    const head = document.head.innerText.toLowerCase();
+    results.no_green_shades = !head.includes('green') && !head.includes('#0') && !head.includes('#00ff');
+
+    // 12) comments // name = present in scripts
+    let hasComments = false;
+    Array.from(document.scripts).forEach(s => { if(s.textContent && s.textContent.indexOf('// name =') !== -1) hasComments = true; });
+    results.comments_product_fields_present = hasComments;
+
+    // 13) names/functions exist
+    results.names_functions_exist = ['renderCatalog','searchModels','openProduct','changeImg','select','goPage','openModal','closeModal'].every(fn => typeof window[fn] === 'function');
+
+  } catch(e){
+    console.error('CHECKLIST error', e);
+  }
+
+  console.group('CHECKLIST');
+  console.log(results);
+  const all = Object.values(results).every(v=>v===true);
+  if(all) console.log('CHECKLIST PASSED — все пункты выполнены.');
+  else console.error('CHECKLIST FAILED', results);
+  console.groupEnd();
+}
+</script>
+</body>
+</html>
