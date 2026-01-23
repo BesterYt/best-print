@@ -30,7 +30,7 @@
     --email-width: 420px;
     --email-height: 44px;
     --border-radius: 12px;
-    --transition-fast: 180ms;
+    --transition-fast: 420ms;
   }
 
   /* базовый сброс */
@@ -231,6 +231,19 @@
   gap: 16px;
   justify-content: center;
 }
+
+  /* Filters panel for catalog (collapsed by default, slides down when .open) */
+  .filters-panel { display:flex; gap:12px; align-items:flex-start; margin:12px 0 18px 0; flex-wrap:wrap; max-height:0; overflow:hidden; transition: max-height 420ms cubic-bezier(.2,.9,.2,1), opacity 420ms ease; opacity:0; }
+  /* When open, we only rely on opacity in CSS; max-height is set/animated via JS using scrollHeight
+    This avoids flashes and the need for a fixed hardcoded max-height. */
+  .filters-panel.open { opacity:1; }
+  .filters-panel .group { background:#fff; padding:10px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.03); border:1px solid #f2f2f2; }
+  .filters-panel .group h4 { margin:0 0 6px 0; font-size:14px; }
+  .filters-panel .tags { display:flex; gap:8px; flex-wrap:wrap; }
+  .filters-panel .tags label { display:flex; gap:6px; align-items:center; font-size:14px; }
+  .filters-panel .price-inputs { display:flex; gap:6px; align-items:center; }
+  .filters-panel input[type="number"]{ width:96px; padding:6px 8px; border-radius:8px; border:1px solid #ddd; }
+  .filters-panel .actions { display:flex; gap:8px; }
 
   .catalog-item {
     background:#fff; border-radius:12px; padding:12px; box-shadow:0 6px 18px rgba(0,0,0,0.04); transition:transform 0.2s, box-shadow 0.2s; cursor:pointer; border:1px solid #f2f2f2;
@@ -464,9 +477,38 @@
   <section id="order" class="page" aria-labelledby="orderTitle">
     <h2 id="orderTitle">Каталог моделей</h2>
 
-    <div class="title-row" style="margin-top:12px;">
-      <input id="searchInput" class="search-input" type="search" placeholder="Поиск готовых моделей" oninput="searchModels(this.value)" aria-label="Поиск готовых моделей" style="width:520px; height:52px;" />
-  
+    <div class="title-row" style="margin-top:12px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+      <div style="display:flex; gap:12px; align-items:center; justify-content:center;">
+        <input id="searchInput" class="search-input" type="search" placeholder="Поиск готовых моделей" oninput="searchModels(this.value)" aria-label="Поиск готовых моделей" style="width:520px; max-width:90vw; height:52px;" />
+        
+      </div>
+      <div style="width:100%; display:flex; justify-content:center;">
+        <button id="filtersToggle" onclick="toggleFilters()" style="padding:8px 12px; border-radius:10px; background:#fff; border:1px solid #ddd;">Фильтры</button>
+      </div>
+    </div>
+
+  <!-- Filters panel (hidden by default) placed under search -->
+  <div id="filtersPanel" class="filters-panel">
+      <div class="group">
+        <h4>Теги</h4>
+        <div id="tagCheckboxes" class="tags">
+          <!-- checkboxes rendered here -->
+        </div>
+      </div>
+      <div class="group">
+        <h4>Цена</h4>
+        <div class="price-inputs">
+          <label>от <input id="priceFrom" type="number" min="0" placeholder="0" /></label>
+          <label>до <input id="priceTo" type="number" min="0" placeholder="9999" /></label>
+        </div>
+      </div>
+      <div class="group actions">
+        <h4 style="visibility:hidden; margin:0;">_</h4>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button onclick="applyFilters()" style="background:var(--accent); border:none; padding:8px 12px; border-radius:8px;">Применить</button>
+          <button onclick="clearFilters()" style="background:#fff; border:1px solid #ddd; padding:8px 12px; border-radius:8px;">Сброс</button>
+        </div>
+      </div>
     </div>
 
     <div id="catalogGrid" class="full-catalog" aria-live="polite" style="margin-top:18px;">
@@ -648,14 +690,14 @@ const mainCatalogUrls = [
 const defaultSizes = ["4см","8см","10см","15см"];
 const products = [
   // name = "Модель 1", prices = { sizeLabel: numericPrice }, description = "...", images = [...]
-  // Example: this product has per-size prices (numbers are in ₽)
-  { name: "Медведь на ключи", description: "Медведи на ключи или в качестве фигурки.", images: [placeholder_1a, placeholder_1b], sizes: ["4см","6см","8см","10см","12см"], prices: { "4см": 150, "6см": 180, "8см": 220, "10см": 270, "12см": 320 } },
+  // Example: this product has per-size prices (numbers are in ₽) 
+  { name: "Медведь на ключи", description: "Медведи на ключи или в качестве фигурки.", images: [placeholder_1a, placeholder_1b], sizes: ["4см","6см","8см","10см","12см"], prices: { "4см": 150, "6см": 180, "8см": 220, "10см": 270, "12см": 320 }, tags: ["Декорация"] },
   // Example: this product supports only a few sizes with prices
-  { name: "Коты", description: "Милые low-poly котики. Вес: 19 грамм", images: [placeholder_2a, placeholder_2b], sizes: ["5см", "10см","12см"], prices: { "5см": 190, "10см": 300, "12см": 360 } },
-  { name: "Death monarch", price: "X ₽", description: "Фигурка Death monarch с черепом.", images: [placeholder_3a, placeholder_3b], prices: { "5см": 190, "10см": 300, "12см": 360 } },
-  { name: "Катапульта антистресс", price: "100₽", description: "Небольшая катапульта. Может стрелять пульками 9мм (как в игрушечных пистолетах)", images: [placeholder_4a, placeholder_4b] },
-  { name: "Осьминог", price: "130₽", description: "Игрушка Осьминог", images: [placeholder_5a, placeholder_5b], sizes: ["5см"]},
-  { name: "Модель 6", price: "X ₽", description: "Описание модели 6", images: [placeholder_6a, placeholder_6b] },
+  { name: "Коты", description: "Милые low-poly котики. Вес: 19 грамм", images: [placeholder_2a, placeholder_2b], sizes: ["5см", "10см","12см"], prices: { "5см": 190, "10см": 300, "12см": 360 }, tags: ["Фигурка","Декорация"] },
+  { name: "Death monarch", price: "350₽", description: "Фигурка Death monarch с черепом.", images: [placeholder_3a, placeholder_3b], sizes: ["12см", "20см"], prices: { "12см": 250, "20см": 350 }, tags: ["Фигурка","Декорация"] },
+  { name: "Катапульта антистресс", price: "100₽", description: "Небольшая катапульта. Может стрелять пульками 9мм (как в игрушечных пистолетах)", images: [placeholder_4a, placeholder_4b], tags: ["Антистресс","Игрушка"] },
+  { name: "Осьминог", price: "130₽", description: "Игрушка Осьминог", images: [placeholder_5a, placeholder_5b], sizes: ["5см"], tags: ["Игрушка", "Антистресс"] },
+  { name: "Игрушка для кошки", price: "250₽", description: "Игрушка для кошки, надевается на палец.", images: [placeholder_6a, placeholder_6b], tags: ["Игрушка"]},
   { name: "Модель 7", price: "X ₽", description: "Описание модели 7", images: [placeholder_7a, placeholder_7b] },
   { name: "Модель 8", price: "X ₽", description: "Описание модели 8", images: [placeholder_8a, placeholder_8b] },
   { name: "Модель 9", price: "X ₽", description: "Описание модели 9", images: [placeholder_9a, placeholder_9b] },
@@ -763,12 +805,116 @@ function getMinPrice(product){
    ========================= */
 function searchModels(q){
   const qnorm = (q || '').trim().toLowerCase();
-  if(!qnorm){
-    renderCatalog(products.slice());
-    return;
+  renderCatalog(getFilteredProducts(qnorm));
+}
+
+// Available tags (editable here)
+const tagsList = ["Фигурка","Антистресс","Игрушка","Декорация"];
+
+function renderTagCheckboxes(){
+  const container = document.getElementById('tagCheckboxes');
+  if(!container) return;
+  container.innerHTML = '';
+  tagsList.forEach(t => {
+    const id = `tag_${t.replace(/\s+/g,'_')}`;
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.value = t; cb.id = id;
+    label.appendChild(cb);
+    const span = document.createElement('span'); span.textContent = t;
+    label.appendChild(span);
+    container.appendChild(label);
+  });
+}
+
+function toggleFilters(){
+  const panel = document.getElementById('filtersPanel');
+  if(!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if(isOpen){
+    // Open: set maxHeight to scrollHeight to animate from 0 -> content height
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+    // ensure opacity becomes visible (CSS handles transition)
+    panel.style.opacity = '1';
+    // After transition, clear inline maxHeight so content can grow/shrink naturally
+    const onEnd = (e) => {
+      if(e.propertyName === 'max-height'){
+        // keep the panel expanded by removing the max-height constraint
+        // using 'none' allows the content to size naturally without collapsing
+        panel.style.maxHeight = 'none';
+        panel.removeEventListener('transitionend', onEnd);
+      }
+    };
+    panel.addEventListener('transitionend', onEnd);
+    // scroll into view so the opened panel is visible
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } else {
+    // Close: set current height then animate to 0
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+    // force reflow so the transition starts from the current height
+    // eslint-disable-next-line no-unused-expressions
+    void panel.offsetHeight;
+    panel.style.maxHeight = '0px';
+    panel.style.opacity = '0';
   }
-  const filtered = products.filter(p => (p.name && p.name.toLowerCase().includes(qnorm)) || (p.description && p.description.toLowerCase().includes(qnorm)));
-  renderCatalog(filtered);
+}
+
+function clearFilters(){
+  document.querySelectorAll('#tagCheckboxes input[type=checkbox]').forEach(cb => cb.checked = false);
+  document.getElementById('priceFrom').value = '';
+  document.getElementById('priceTo').value = '';
+  renderCatalog(products.slice());
+}
+
+function applyFilters(){
+  // re-run searchModels with current query to apply filters
+  const q = (document.getElementById('searchInput')||{value:''}).value;
+  renderCatalog(getFilteredProducts(q.trim().toLowerCase()));
+}
+
+function getProductMinNumericPrice(product){
+  if(!product) return null;
+  if(product.prices){
+    const vals = Object.values(product.prices).map(v=>Number(v)).filter(v=>!isNaN(v));
+    if(vals.length) return Math.min.apply(null, vals);
+  }
+  // try parse numbers from legacy price string
+  if(product.price && typeof product.price === 'string'){
+    const nums = (product.price.match(/\d+/g)||[]).map(s=>Number(s)).filter(n=>!isNaN(n));
+    if(nums.length) return Math.min.apply(null, nums);
+  }
+  return null;
+}
+
+function getFilteredProducts(qnorm){
+  const text = (qnorm || '').trim().toLowerCase();
+  // collect selected tags
+  const selectedTags = Array.from(document.querySelectorAll('#tagCheckboxes input[type=checkbox]:checked')).map(cb=>cb.value);
+  const priceFrom = parseInt((document.getElementById('priceFrom')||{value:''}).value || '');
+  const priceTo = parseInt((document.getElementById('priceTo')||{value:''}).value || '');
+
+  return products.filter(p => {
+    // text match
+    if(text){
+      const name = (p.name||'').toLowerCase();
+      const desc = (p.description||'').toLowerCase();
+      if(!(name.includes(text) || desc.includes(text))) return false;
+    }
+    // tags: if any selected, product must match at least one
+    if(selectedTags.length>0){
+      if(!p.tags || !Array.isArray(p.tags)) return false;
+      const has = selectedTags.some(t => p.tags.indexOf(t) !== -1);
+      if(!has) return false;
+    }
+    // price
+    if(!isNaN(priceFrom) || !isNaN(priceTo)){
+      const min = getProductMinNumericPrice(p);
+      if(min === null) return false; // can't judge, exclude
+      if(!isNaN(priceFrom) && min < priceFrom) return false;
+      if(!isNaN(priceTo) && min > priceTo) return false;
+    }
+    return true;
+  });
 }
 
 /* =========================
@@ -1121,6 +1267,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // рендер каталога при старте
   renderCatalog(products.slice());
+  // render tag checkboxes for filters
+  renderTagCheckboxes();
   // set hero preview cards (use product images so you can change them centrally in products[])
   ['previewCard0','previewCard1','previewCard2'].forEach((id,i)=>{
     const el = document.getElementById(id);
