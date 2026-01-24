@@ -305,6 +305,18 @@
   .gen-cover .panel p { margin:8px 0 0 0; color:#555; }
   .gen-cover .panel button { margin-top:12px; padding:10px 14px; border-radius:10px; border:none; background:var(--accent); font-weight:700; cursor:pointer; }
 
+  /* CART DRAWER */
+  .cart-drawer-wrap { position:fixed; top:var(--header-h); right:0; height:calc(100vh - var(--header-h)); width:360px; max-width:92vw; transform: translateX(110%); transition: transform 320ms ease; z-index:2600; }
+  .cart-drawer-wrap.open { transform: translateX(0); }
+  .cart-drawer { background:#fff; height:100%; box-shadow: -8px 0 32px rgba(0,0,0,0.2); padding:16px; display:flex; flex-direction:column; }
+  .cart-drawer header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .cart-items { overflow:auto; flex:1 1 auto; margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+  .cart-item { display:flex; gap:8px; align-items:center; padding:8px; border-radius:8px; border:1px solid #f2f2f2; }
+  .cart-item .meta { flex:1; }
+  .cart-item .qty { display:flex; gap:6px; align-items:center; }
+  .cart-footer { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+  .cart-close { background:transparent; border:none; font-size:18px; cursor:pointer; }
+
   /* =========================
      Медиа-запросы
      ========================= */
@@ -401,6 +413,7 @@
     <button id="navCatalog" aria-label="Каталог" onclick="goPage('order')">Каталог</button>
     <button id="navGen" aria-label="Генерация" onclick="showGenCover()">Генерация</button>
     <button id="navAuthtor" aria-label="О нас" onclick="goPage('AR')">О нас</button>
+    <button id="cartToggle" aria-label="Открыть корзину" onclick="openCart()" style="margin-left:8px;">Корзина (<span id="cartCount">0</span>)</button>
   </div>
   <div class="brand" id="brand" role="link" aria-label="Best Print — на главную" onclick="goPage('home')">Best Print</div>
 </header>
@@ -479,7 +492,7 @@
 
     <div class="title-row" style="margin-top:12px; display:flex; flex-direction:column; align-items:center; gap:12px;">
       <div style="display:flex; gap:12px; align-items:center; justify-content:center;">
-        <input id="searchInput" class="search-input" type="search" placeholder="Поиск готовых моделей" oninput="searchModels(this.value)" aria-label="Поиск готовых моделей" style="width:520px; max-width:90vw; height:52px;" />
+  <input id="searchInput" class="search-input" type="search" placeholder="Поиск готовых моделей" aria-label="Поиск готовых моделей" style="width:520px; max-width:90vw; height:52px;" />
         
       </div>
       <div style="width:100%; display:flex; justify-content:center;">
@@ -547,7 +560,10 @@
 
         <div id="productDescription" style="margin-top:12px; color:#444;">Описание товара...</div>
 
-        <button class="order-btn" aria-label="Заказать товар" onclick="placeOrder()">Заказать</button>
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="order-btn" aria-label="Добавить в корзину" onclick="addToCartFromPage()" style="background:var(--accent); color:var(--black);">Добавить в корзину</button>
+          <button class="order-btn" aria-label="Заказать товар" onclick="placeOrder()" style="background:var(--black); color:#fff;">Купить сейчас</button>
+        </div>
       </div>
     </div>
   </section>
@@ -626,6 +642,26 @@
 <div id="imgLightbox" class="img-lightbox" role="dialog" aria-hidden="true" onclick="closeLightbox()">
   <img id="lightboxImg" src="" alt="Просмотр изображения" onclick="event.stopPropagation();" />
   <button class="close" aria-label="Закрыть" onclick="closeLightbox()">✕</button>
+</div>
+
+<!-- CART DRAWER -->
+<div id="cartDrawerWrap" class="cart-drawer-wrap" aria-hidden="true">
+  <div class="cart-drawer" role="dialog" aria-label="Корзина">
+    <header>
+      <strong>Ваша корзина</strong>
+      <div>
+        <button class="cart-close" aria-label="Закрыть корзину" onclick="closeCart()">✕</button>
+      </div>
+    </header>
+    <div id="cartItems" class="cart-items" aria-live="polite"></div>
+    <div class="cart-footer">
+      <div style="display:flex; justify-content:space-between; font-weight:700;"><span>Итого</span><span id="cartTotal">0 ₽</span></div>
+      <div style="display:flex; gap:8px;">
+        <button style="flex:1; background:var(--accent); border:none; padding:10px; border-radius:8px;" onclick="submitCart()">Оформить заказ</button>
+        <button style="flex:1; background:#fff; border:1px solid #ddd; padding:10px; border-radius:8px;" onclick="clearCart()">Очистить</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- SITE FOOTER LINK: visible on every page -->
@@ -818,13 +854,55 @@ function renderTagCheckboxes(){
   tagsList.forEach(t => {
     const id = `tag_${t.replace(/\s+/g,'_')}`;
     const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.value = t; cb.id = id;
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.value = t; cb.id = id;
+  cb.addEventListener('change', saveFilters);
     label.appendChild(cb);
     const span = document.createElement('span'); span.textContent = t;
     label.appendChild(span);
     container.appendChild(label);
   });
+}
+
+// debounce helper
+function debounce(fn, wait){
+  let t = null;
+  return function(...args){
+    clearTimeout(t);
+    t = setTimeout(()=> fn.apply(this, args), wait);
+  };
+}
+
+// Filters persistence: save and restore to localStorage
+function saveFilters(){
+  try{
+    const q = (document.getElementById('searchInput')||{value:''}).value || '';
+    const selectedTags = Array.from(document.querySelectorAll('#tagCheckboxes input[type=checkbox]:checked')).map(cb=>cb.value);
+    const priceFrom = (document.getElementById('priceFrom')||{value:''}).value || '';
+    const priceTo = (document.getElementById('priceTo')||{value:''}).value || '';
+    const payload = { q, tags: selectedTags, priceFrom, priceTo };
+    localStorage.setItem('bp_filters', JSON.stringify(payload));
+  }catch(e){ console.error('saveFilters err', e); }
+}
+
+function restoreFilters(){
+  try{
+    const raw = localStorage.getItem('bp_filters');
+    if(!raw) return null;
+    const o = JSON.parse(raw);
+    if(o.q) document.getElementById('searchInput').value = o.q;
+    // tags
+    document.querySelectorAll('#tagCheckboxes input[type=checkbox]').forEach(cb => cb.checked = false);
+    if(Array.isArray(o.tags)){
+      o.tags.forEach(t => {
+        const el = document.querySelector(`#tag_${t.replace(/\s+/g,'_')}`);
+        if(el) el.checked = true;
+      });
+    }
+    if(typeof o.priceFrom !== 'undefined') document.getElementById('priceFrom').value = o.priceFrom || '';
+    if(typeof o.priceTo !== 'undefined') document.getElementById('priceTo').value = o.priceTo || '';
+    return o;
+  }catch(e){ console.error('restoreFilters err', e); return null; }
 }
 
 function toggleFilters(){
@@ -982,14 +1060,30 @@ function openProduct(p){
     el.setAttribute('aria-pressed', idx===0 ? 'true' : 'false');
   });
 
+  // restore previously selected color/size for this product if present
+  let _savedSelection = {};
+  try{
+    const prodIdx = products.findIndex(pr => pr === p);
+    if(prodIdx >= 0) _savedSelection = JSON.parse(localStorage.getItem('bp_selected_' + prodIdx) || '{}') || {};
+  }catch(e){ _savedSelection = {}; }
+  // if a saved color exists, activate the matching color button
+  try{
+    if(_savedSelection && _savedSelection.color){
+      const colorBtns = Array.from(document.querySelectorAll('#colorOptions .option-btn'));
+      const match = colorBtns.find(b => (b.dataset.value || '') === _savedSelection.color);
+      if(match){ colorBtns.forEach(b=>{ b.classList.remove('active'); b.setAttribute('aria-pressed','false'); }); match.classList.add('active'); match.setAttribute('aria-pressed','true'); }
+    }
+  }catch(e){}
+
   // size options: render buttons from product.sizes if present, otherwise use defaultSizes
   const sizeWrap = document.getElementById('sizeOptions');
   if(sizeWrap){
     const sizes = (p.sizes && Array.isArray(p.sizes) && p.sizes.length>0) ? p.sizes : (window.defaultSizes || []);
     sizeWrap.innerHTML = '';
     sizes.forEach((sz, i) => {
+      const isActive = (_savedSelection && _savedSelection.size && _savedSelection.size === sz) || (!(_savedSelection && _savedSelection.size) && i===0);
       const btn = document.createElement('button');
-      btn.className = 'option-btn' + (i===0 ? ' active' : '');
+      btn.className = 'option-btn' + (isActive ? ' active' : '');
       btn.setAttribute('data-value', sz);
       // attach computed price for this size (if available)
       const priceInfo = getPriceForProduct(p, sz);
@@ -997,12 +1091,13 @@ function openProduct(p){
         btn.dataset.priceText = priceInfo.text;
         if(typeof priceInfo.value !== 'undefined') btn.dataset.priceValue = String(priceInfo.value);
       }
-      btn.setAttribute('aria-pressed', i===0 ? 'true' : 'false');
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       btn.textContent = sz;
       btn.onclick = () => select(btn);
       sizeWrap.appendChild(btn);
       // if this is the default (first) size, set product price accordingly
-      if(i===0){
+      // set product price if this size is active (either saved selection or first default)
+      if(isActive){
         if(priceInfo){
           priceEl.textContent = 'Цена печати: ' + priceInfo.text;
           priceEl.dataset.priceText = priceInfo.text;
@@ -1064,6 +1159,19 @@ function select(btn){
       }
     }
   }catch(e){ console.error('price update error', e); }
+  // persist selected option for the current product (size or color)
+  try{
+    if(window.currentProduct){
+      const prodIdx = products.findIndex(p => p === window.currentProduct);
+      if(prodIdx >= 0){
+        const key = 'bp_selected_' + prodIdx;
+        const prev = JSON.parse(localStorage.getItem(key) || '{}');
+        if(parent && parent.id === 'sizeOptions') prev.size = btn.dataset.value || null;
+        if(parent && parent.id === 'colorOptions') prev.color = btn.dataset.value || null;
+        localStorage.setItem(key, JSON.stringify(prev));
+      }
+    }
+  }catch(e){ /* ignore storage errors */ }
 }
 
 /* =========================
@@ -1220,6 +1328,90 @@ function placeOrder(){
 }
 
 /* =========================
+   CART: basic cart functionality (localStorage-backed)
+   addToCartFromPage() — add current product with selected options to cart
+   renderCart(), openCart(), closeCart(), submitCart(), clearCart()
+   ========================= */
+function getCart(){
+  try{ return JSON.parse(localStorage.getItem('bp_cart')||'[]'); }catch(e){ return []; }
+}
+function saveCart(cart){ localStorage.setItem('bp_cart', JSON.stringify(cart||[])); updateCartCount(); }
+function updateCartCount(){ const n = getCart().reduce((s,i)=>s + (i.qty||0),0); document.getElementById('cartCount').textContent = String(n); }
+
+function addToCartFromPage(){
+  if(!currentProduct) return alert('Нет выбранного продукта');
+  const color = document.querySelector('#colorOptions .option-btn.active')?.dataset?.value || null;
+  const size = document.querySelector('#sizeOptions .option-btn.active')?.dataset?.value || null;
+  const priceEl = document.getElementById('productPrice');
+  const priceText = priceEl?.dataset?.priceText || (currentProduct.price || 'X ₽');
+  const priceValue = priceEl?.dataset?.priceValue ? Number(priceEl.dataset.priceValue) : getProductMinNumericPrice(currentProduct) || 0;
+  const prodIdx = products.findIndex(p => p === currentProduct);
+  const cart = getCart();
+  // try to merge with existing identical item (same product index, size, color)
+  const existing = cart.find(ci => ci.prodIdx === prodIdx && ci.size === size && ci.color === color);
+  if(existing){ existing.qty = (existing.qty||1) + 1; }
+  else {
+    cart.push({ prodIdx, name: currentProduct.name, size, color, priceValue, priceText, qty: 1 });
+  }
+  saveCart(cart);
+  renderCart();
+  // give quick feedback
+  const el = document.getElementById('cartCount'); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),350);
+}
+
+function renderCart(){
+  const wrap = document.getElementById('cartItems'); if(!wrap) return;
+  const cart = getCart();
+  wrap.innerHTML = '';
+  if(cart.length===0){ wrap.innerHTML = '<div style="color:#666;">Корзина пуста</div>'; document.getElementById('cartTotal').textContent = '0 ₽'; updateCartCount(); return; }
+  cart.forEach((it, idx) => {
+    const row = document.createElement('div'); row.className = 'cart-item';
+    const meta = document.createElement('div'); meta.className = 'meta';
+    const title = document.createElement('div'); title.textContent = it.name; title.style.fontWeight='700';
+    const sub = document.createElement('div'); sub.style.color='#666'; sub.style.fontSize='13px'; sub.textContent = `${it.size || '-'} · ${it.color || '-'} · ${it.priceText || ''}`;
+    meta.appendChild(title); meta.appendChild(sub);
+    const controls = document.createElement('div'); controls.className = 'qty';
+    const btnDec = document.createElement('button'); btnDec.textContent='−'; btnDec.onclick = ()=> changeQty(idx, -1);
+    const qSpan = document.createElement('span'); qSpan.textContent = String(it.qty||1); qSpan.style.minWidth='28px'; qSpan.style.textAlign='center';
+    const btnInc = document.createElement('button'); btnInc.textContent='+'; btnInc.onclick = ()=> changeQty(idx, 1);
+    const remove = document.createElement('button'); remove.textContent='✕'; remove.onclick = ()=> removeCartItem(idx);
+    controls.appendChild(btnDec); controls.appendChild(qSpan); controls.appendChild(btnInc); controls.appendChild(remove);
+    row.appendChild(meta); row.appendChild(controls);
+    wrap.appendChild(row);
+  });
+  const total = calculateCartTotal(); document.getElementById('cartTotal').textContent = formatPrice(total);
+  updateCartCount();
+}
+
+function changeQty(idx, delta){ const cart = getCart(); if(!cart[idx]) return; cart[idx].qty = Math.max(0, (cart[idx].qty||1) + delta); if(cart[idx].qty===0) cart.splice(idx,1); saveCart(cart); renderCart(); }
+function removeCartItem(idx){ const cart = getCart(); if(!cart[idx]) return; cart.splice(idx,1); saveCart(cart); renderCart(); }
+function calculateCartTotal(){ const cart = getCart(); return cart.reduce((s,it)=> s + ((Number(it.priceValue) || 0) * (Number(it.qty) || 1)), 0); }
+
+function openCart(){ const wrap = document.getElementById('cartDrawerWrap'); if(!wrap) return; renderCart(); wrap.classList.add('open'); wrap.setAttribute('aria-hidden','false'); }
+function closeCart(){ const wrap = document.getElementById('cartDrawerWrap'); if(!wrap) return; wrap.classList.remove('open'); wrap.setAttribute('aria-hidden','true'); }
+function clearCart(){ localStorage.removeItem('bp_cart'); renderCart(); updateCartCount(); }
+
+async function submitCart(){
+  const cart = getCart(); if(!cart || cart.length===0) return alert('Корзина пуста');
+  // ask for username
+  let tg = window.prompt('Укажите ваш Telegram username (например @username) для уведомлений или оставьте пустым:','@');
+  if(tg === null) return; tg = (tg||'').trim();
+  const payload = { id: 'CART-' + Date.now().toString(36), type: 'cart', items: cart, total: calculateCartTotal(), username: tg, date: new Date().toISOString() };
+  const endpoint = 'https://bestprintdaf5.ivantimockin19.workers.dev/orders';
+  // show simple sending UI in cart (disable drawer buttons) — reuse pattern from submitOrderToServer
+  try{
+    const controller = new AbortController(); const timeoutId = setTimeout(()=> controller.abort(), 15000);
+    const res = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload), signal: controller.signal });
+    clearTimeout(timeoutId);
+    if(res.ok){ alert('Заказ из корзины отправлен. Менеджер свяжется с вами.'); clearCart(); closeCart(); openModal(); }
+    else { alert('Ошибка отправки корзины. Попробуйте позже.'); }
+  }catch(err){ console.error('submitCart err', err); if(err && err.name === 'AbortError') alert('Время ожидания истекло (15s).'); else alert('Не удалось отправить корзину. Проверьте соединение.'); }
+}
+
+// initialize cart count on load
+document.addEventListener('DOMContentLoaded', ()=>{ updateCartCount(); });
+
+/* =========================
    Генерация: previewFile + submitGenerate
    ========================= */
 function previewFile(e){
@@ -1264,11 +1456,26 @@ function hideGenCover(){
    TYPEWRITER + показать кнопку
    ========================= */
 document.addEventListener('DOMContentLoaded', ()=>{
-
-  // рендер каталога при старте
-  renderCatalog(products.slice());
-  // render tag checkboxes for filters
+  // render tag checkboxes and restore filters/search from localStorage
   renderTagCheckboxes();
+  // restore filters (fills inputs and checkboxes). We'll use restored q to render catalog filtered.
+  const restored = restoreFilters() || { q: '' };
+  // attach debounced search handler and persistence
+  const searchIn = document.getElementById('searchInput');
+  const deb = debounce(function(v){ saveFilters(); searchModels(v); }, 220);
+  if(searchIn){
+    // initialize value from restored
+    if(restored.q) searchIn.value = restored.q;
+    searchIn.addEventListener('input', (e) => deb((e.target||{}).value || ''));
+  }
+  // price inputs should persist and apply on change
+  const pf = document.getElementById('priceFrom');
+  const pt = document.getElementById('priceTo');
+  if(pf) pf.addEventListener('change', ()=>{ saveFilters(); applyFilters(); });
+  if(pt) pt.addEventListener('change', ()=>{ saveFilters(); applyFilters(); });
+  // tag checkbox listeners already call saveFilters when toggled (renderTagCheckboxes attached them)
+  // now render catalog according to restored filters
+  renderCatalog(getFilteredProducts((restored.q||'').trim().toLowerCase()));
   // set hero preview cards (use product images so you can change them centrally in products[])
   ['previewCard0','previewCard1','previewCard2'].forEach((id,i)=>{
     const el = document.getElementById(id);
